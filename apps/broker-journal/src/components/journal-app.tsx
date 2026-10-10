@@ -119,9 +119,20 @@ function JournalShell() {
         case "create-open":
           return <CreateOpenPanel onDone={load} />;
         case "create-close": {
-          const d = panel.data as { openId: string; openLabel?: string };
+          const d = panel.data as {
+            openId: string;
+            openLabel?: string;
+            instrument?: string;
+            entryPrice?: number;
+          };
           return (
-            <CreateClosePanel openId={d.openId} openLabel={d.openLabel} onDone={load} />
+            <CreateClosePanel
+              openId={d.openId}
+              openLabel={d.openLabel}
+              instrument={d.instrument}
+              entryPrice={d.entryPrice}
+              onDone={load}
+            />
           );
         }
         case "view-open":
@@ -142,11 +153,16 @@ function JournalShell() {
           return (
             <PickOpenToClose
               positions={data?.openPositions ?? []}
-              onPick={(id, label) =>
+              onPick={(position) =>
                 push({
                   type: "create-close",
                   title: "Закрыть позицию",
-                  data: { openId: id, openLabel: label },
+                  data: {
+                    openId: position.id,
+                    openLabel: `${position.instrument} · вход ${formatMoney(position.price, 4)} · ${formatDateTime(position.openedAt)}`,
+                    instrument: position.instrument,
+                    entryPrice: position.price,
+                  },
                 })
               }
             />
@@ -298,6 +314,10 @@ function JournalShell() {
                             {item.kind === "open" ? (
                               <span>
                                 ×{formatMoney(item.quantity, 2)} · плечо {formatMoney(item.leverage, 0)}
+                                {" · "}
+                                покупка {formatMoney(item.purchase)}
+                                {" · "}
+                                затраты {formatMoney(item.cost)}
                               </span>
                             ) : (
                               <span>{CLOSE_REASON_LABELS[item.closeReason]}</span>
@@ -318,6 +338,8 @@ function JournalShell() {
                               data: {
                                 openId: item.id,
                                 openLabel: `${item.instrument} · вход ${formatMoney(item.price, 4)}`,
+                                instrument: item.instrument,
+                                entryPrice: item.price,
                               },
                             })
                           }
@@ -361,7 +383,7 @@ function PickOpenToClose({
   onPick,
 }: {
   positions: RegistryResponse["openPositions"];
-  onPick: (id: string, label: string) => void;
+  onPick: (position: RegistryResponse["openPositions"][number]) => void;
 }) {
   if (!positions.length) {
     return (
@@ -378,12 +400,7 @@ function PickOpenToClose({
           <button
             type="button"
             className="flex w-full flex-col gap-0.5 px-4 py-3 text-left hover:bg-muted/50"
-            onClick={() =>
-              onPick(
-                p.id,
-                `${p.instrument} · вход ${formatMoney(p.price, 4)} · ${formatDateTime(p.openedAt)}`
-              )
-            }
+            onClick={() => onPick(p)}
           >
             <span className="font-medium">{p.instrument}</span>
             <span className="text-xs text-muted-foreground">

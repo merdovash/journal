@@ -10,6 +10,10 @@ import {
   PanelBody,
   PanelSection,
 } from "@broker-journal/ui";
+import type { ParsedCloseValues } from "@/lib/screenshot/parse-close";
+import type { ParsedOpenValues } from "@/lib/screenshot/parse-open";
+import { ScreenshotCloseImport, ScreenshotOpenImport } from "./screenshot-open-import";
+import { TradeAmountSummary } from "./trade-amounts";
 
 export type OpenFormValues = {
   openedAt: string;
@@ -40,11 +44,13 @@ export function OpenTradeForm({
   submitLabel,
   onSubmit,
   onCancel,
+  enableScreenshot = false,
 }: {
   initial?: Partial<OpenFormValues>;
   submitLabel: string;
   onSubmit: (values: OpenFormValues) => Promise<void>;
   onCancel?: () => void;
+  enableScreenshot?: boolean;
 }) {
   const [values, setValues] = React.useState<OpenFormValues>({
     ...emptyOpen,
@@ -75,6 +81,16 @@ export function OpenTradeForm({
   return (
     <form onSubmit={handleSubmit} className="flex min-h-full flex-col">
       <PanelBody>
+        {enableScreenshot ? (
+          <PanelSection title="Скриншот">
+            <ScreenshotOpenImport
+              disabled={busy}
+              onApply={(values: ParsedOpenValues) =>
+                setValues((current) => ({ ...current, ...values }))
+              }
+            />
+          </PanelSection>
+        ) : null}
         <PanelSection title="Инструмент">
           <Field label="Тикер (Yahoo)">
             <Input
@@ -141,6 +157,14 @@ export function OpenTradeForm({
             </Field>
           </div>
         </PanelSection>
+        <PanelSection title="Итог">
+          <TradeAmountSummary
+            price={Number(values.price)}
+            quantity={Number(values.quantity)}
+            leverage={Number(values.leverage)}
+            commission={Number(values.commission)}
+          />
+        </PanelSection>
         <PanelSection title="Причина">
           <Field label="Комментарий">
             <Textarea
@@ -182,6 +206,9 @@ export function CloseTradeForm({
   submitLabel,
   onSubmit,
   onCancel,
+  enableScreenshot = false,
+  openInstrument,
+  openEntryPrice,
 }: {
   openId: string;
   openLabel?: string;
@@ -189,6 +216,9 @@ export function CloseTradeForm({
   submitLabel: string;
   onSubmit: (values: CloseFormValues) => Promise<void>;
   onCancel?: () => void;
+  enableScreenshot?: boolean;
+  openInstrument?: string;
+  openEntryPrice?: number;
 }) {
   const [values, setValues] = React.useState<CloseFormValues>({
     openId,
@@ -217,6 +247,18 @@ export function CloseTradeForm({
   return (
     <form onSubmit={handleSubmit} className="flex min-h-full flex-col">
       <PanelBody>
+        {enableScreenshot ? (
+          <PanelSection title="Скриншот">
+            <ScreenshotCloseImport
+              disabled={busy}
+              openInstrument={openInstrument}
+              openEntryPrice={openEntryPrice}
+              onApply={(parsed: ParsedCloseValues) =>
+                setValues((current) => ({ ...current, ...parsed, openId: current.openId }))
+              }
+            />
+          </PanelSection>
+        ) : null}
         <PanelSection title="Закрытие">
           {openLabel ? (
             <p className="rounded-lg bg-muted px-3 py-2 text-sm">{openLabel}</p>

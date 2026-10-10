@@ -12,6 +12,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "test:screenshot": "node --import tsx --test src/lib/journal.test.ts src/lib/screenshot/parse-open.test.ts src/lib/screenshot/parse-close.test.ts src/lib/screenshot/recognize-open.test.ts src/lib/screenshot/recognize-close.test.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -23,6 +24,8 @@
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sharp": "0.35.5",
+    "tesseract.js": "7.0.0",
     "yahoo-finance2": "^2.13.3",
     "zod": "^3.24.1"
   },

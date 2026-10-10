@@ -6,6 +6,7 @@
 
 ```
 apps/broker-journal   — Next.js App Router (UI, API, Prisma, PWA)
+apps/broker-journal/models/tessdata — веса Tesseract rus+eng для импорта со скриншота
 packages/ui           — @broker-journal/ui: StackedPanel + примитивы (Button, Input, …)
 ```
 
@@ -47,6 +48,8 @@ pnpm dev
 ## Возможности
 
 - Реестр на `/` со счётчиками: **баланс**, **вложено**, **заработано**, **комиссии**
+- Открытие со скриншота Walt («Лонг открыт» или «Ваша позиция»): локальный OCR заполняет форму, сделка сохраняется после проверки
+- Закрытие со скриншота Walt («Цена при закрытии»): в форму подставляются цена выхода, комиссия и дата
 - Карточки на **стековых панелях** (не отдельных роутах): просмотр / правка / создание открытия и закрытия
 - Deep-link: `?stack=open:<id>` / `?stack=close:<id>`
 - Свечи: `GET /api/candles?symbol=&from=&to&interval=5m` через `yahoo-finance2` (**не хранятся** в БД)
@@ -66,6 +69,7 @@ pnpm dev
 | Команда | Описание |
 |--------|----------|
 | `pnpm dev` | Dev-сервер на порту 43127 |
+| `pnpm --filter @broker-journal/app test:screenshot` | Суммы сделки, разбор текста и OCR фикстур открытия и закрытия |
 | `pnpm build` | Сборка UI + app |
 | `pnpm db:push` | Prisma db push |
 | `pnpm db:seed` | Пример сделок |

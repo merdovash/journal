@@ -36,6 +36,7 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@broker-journal/ui"],
+  serverExternalPackages: ["tesseract.js", "tesseract.js-core", "sharp"],
   ...(basePath ? { basePath } : {}),
   ...(assetPrefix ? { assetPrefix } : {}),
   experimental: {

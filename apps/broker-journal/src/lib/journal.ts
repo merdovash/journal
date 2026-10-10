@@ -33,6 +33,21 @@ export function calcMargin(
   return (price * quantity) / leverage;
 }
 
+/** Notional: what was bought, at the entry price. */
+export function calcPurchase(price: number, quantity: number): number {
+  return round6(price * quantity);
+}
+
+/** Cash committed: margin plus commissions already paid. */
+export function calcOpenCost(
+  price: number,
+  quantity: number,
+  leverage: number,
+  commission: number
+): number {
+  return round6(calcMargin(price, quantity, leverage) + commission);
+}
+
 export type JournalStats = {
   startingBalance: number;
   balance: number;
@@ -94,6 +109,8 @@ export type RegistryItem =
       takeProfit: number | null;
       closed: boolean;
       closeId: string | null;
+      purchase: number;
+      cost: number;
     }
   | {
       kind: "close";
@@ -128,6 +145,13 @@ export function toRegistryItems(opens: TradeOpenWithClose[]): RegistryItem[] {
       takeProfit: open.takeProfit == null ? null : d(open.takeProfit),
       closed: open.close != null,
       closeId: open.close?.id ?? null,
+      purchase: calcPurchase(d(open.price), d(open.quantity)),
+      cost: calcOpenCost(
+        d(open.price),
+        d(open.quantity),
+        d(open.leverage),
+        d(open.commission) + (open.close ? d(open.close.commission) : 0)
+      ),
     });
 
     if (open.close) {

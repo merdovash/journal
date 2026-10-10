@@ -24,6 +24,7 @@ import {
   formatDateTime,
   formatMoney,
 } from "@/lib/journal";
+import { TradeAmountSummary } from "./trade-amounts";
 
 export type SerializedOpen = {
   id: string;
@@ -63,6 +64,7 @@ export function CreateOpenPanel({ onDone }: { onDone: RefreshFn }) {
   const { clear } = useStackedPanel();
   return (
     <OpenTradeForm
+      enableScreenshot
       submitLabel="Открыть позицию"
       onCancel={() => clear()}
       onSubmit={async (values) => {
@@ -93,17 +95,24 @@ export function CreateOpenPanel({ onDone }: { onDone: RefreshFn }) {
 export function CreateClosePanel({
   openId,
   openLabel,
+  instrument,
+  entryPrice,
   onDone,
 }: {
   openId: string;
   openLabel?: string;
+  instrument?: string;
+  entryPrice?: number;
   onDone: RefreshFn;
 }) {
   const { clear } = useStackedPanel();
   return (
     <CloseTradeForm
+      enableScreenshot
       openId={openId}
       openLabel={openLabel}
+      openInstrument={instrument}
+      openEntryPrice={entryPrice}
       submitLabel="Закрыть позицию"
       onCancel={() => clear()}
       onSubmit={async (values) => {
@@ -226,6 +235,12 @@ export function ViewOpenPanel({
               ["Take Profit", open.takeProfit == null ? "—" : formatMoney(open.takeProfit, 4)],
             ]}
           />
+          <TradeAmountSummary
+            price={open.price}
+            quantity={open.quantity}
+            leverage={open.leverage}
+            commission={open.commission + (open.close?.commission ?? 0)}
+          />
           {open.openReason ? (
             <p className="rounded-lg bg-muted/60 px-3 py-2 text-sm leading-relaxed">
               {open.openReason}
@@ -276,6 +291,8 @@ export function ViewOpenPanel({
                 data: {
                   openId: open.id,
                   openLabel: `${open.instrument} · вход ${formatMoney(open.price, 4)}`,
+                  instrument: open.instrument,
+                  entryPrice: open.price,
                 },
               })
             }
@@ -382,6 +399,12 @@ export function ViewClosePanel({
               ["Цена входа", formatMoney(close.open.price, 4)],
               ["Открыто", formatDateTime(close.open.openedAt)],
             ]}
+          />
+          <TradeAmountSummary
+            price={close.open.price}
+            quantity={close.open.quantity}
+            leverage={close.open.leverage}
+            commission={close.open.commission + close.commission}
           />
           <button
             type="button"
