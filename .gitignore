@@ -1,0 +1,15 @@
+node_modules
+.next
+.turbo
+dist
+*.tsbuildinfo
+.env
+.env.local
+.DS_Store
+apps/broker-journal/public/sw.js
+apps/broker-journal/public/sw.js.map
+apps/broker-journal/public/swe-worker-*.js
+apps/broker-journal/public/workbox-*.js
+apps/broker-journal/.serwist
+coverage
+*.log

@@ -1,0 +1,16 @@
+{
+  "name": "broker-journal-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @broker-journal/app dev",
+    "build": "pnpm --filter @broker-journal/ui build && pnpm --filter @broker-journal/app build",
+    "db:generate": "pnpm --filter @broker-journal/app db:generate",
+    "db:migrate": "pnpm --filter @broker-journal/app db:migrate",
+    "db:seed": "pnpm --filter @broker-journal/app db:seed",
+    "db:push": "pnpm --filter @broker-journal/app db:push"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.3"
+}
