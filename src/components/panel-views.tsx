@@ -383,7 +383,9 @@ export function ViewClosePanel({
         <PanelSection title="Результат">
           <div
             className={`rounded-xl px-4 py-3 text-2xl font-semibold tabular-nums ${
-              close.pnl >= 0 ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"
+              close.pnl >= 0
+                ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+                : "bg-rose-50 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300"
             }`}
           >
             {close.pnl >= 0 ? "+" : ""}

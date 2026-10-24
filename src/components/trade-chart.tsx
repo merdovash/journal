@@ -11,6 +11,8 @@ import {
   type SeriesMarker,
   type Time,
 } from "lightweight-charts";
+import { resolveTheme, readThemeMode } from "../lib/theme";
+import { useTheme } from "../lib/useTheme";
 import { ErrorState, LoadingState } from "./ui";
 
 export type CandlePoint = {
@@ -55,6 +57,8 @@ export function TradeChart({
     "loading"
   );
   const [error, setError] = React.useState<string | null>(null);
+  const { mode: themeMode } = useTheme();
+  const isDark = resolveTheme(themeMode) === "dark";
 
   const load = React.useCallback(async () => {
     setStatus("loading");
@@ -81,14 +85,7 @@ export function TradeChart({
 
       if (!chartRef.current) {
         const chart = createChart(containerRef.current, {
-          layout: {
-            background: { color: "transparent" },
-            textColor: "#3f4650",
-          },
-          grid: {
-            vertLines: { color: "rgba(63,70,80,0.08)" },
-            horzLines: { color: "rgba(63,70,80,0.08)" },
-          },
+          ...chartChrome(resolveTheme(readThemeMode()) === "dark"),
           rightPriceScale: { borderVisible: false },
           timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
           crosshair: { mode: 1 },
@@ -197,6 +194,10 @@ export function TradeChart({
   }, [load]);
 
   React.useEffect(() => {
+    if (chartRef.current) chartRef.current.applyOptions(chartChrome(isDark));
+  }, [isDark]);
+
+  React.useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
@@ -238,6 +239,20 @@ export function TradeChart({
       />
     </div>
   );
+}
+
+function chartChrome(dark: boolean) {
+  const grid = dark ? "rgba(148,163,184,0.14)" : "rgba(63,70,80,0.08)";
+  return {
+    layout: {
+      background: { color: "transparent" },
+      textColor: dark ? "#94a3b8" : "#3f4650",
+    },
+    grid: {
+      vertLines: { color: grid },
+      horzLines: { color: grid },
+    },
+  };
 }
 
 function nearestTime(

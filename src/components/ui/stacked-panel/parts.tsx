@@ -81,8 +81,8 @@ export function StatWidget({
       <span
         className={cn(
           "text-lg font-semibold tabular-nums tracking-tight",
-          tone === "positive" && "text-emerald-700",
-          tone === "negative" && "text-rose-700",
+          tone === "positive" && "text-emerald-700 dark:text-emerald-400",
+          tone === "negative" && "text-rose-700 dark:text-rose-400",
           tone === "muted" && "text-muted-foreground"
         )}
       >
