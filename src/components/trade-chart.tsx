@@ -33,6 +33,7 @@ type TradeChartProps = {
   entryTime?: string | null;
   exitPrice?: number | null;
   exitTime?: string | null;
+  side?: "long" | "short";
   className?: string;
 };
 
@@ -46,6 +47,7 @@ export function TradeChart({
   entryTime,
   exitPrice,
   exitTime,
+  side = "long",
   className,
 }: TradeChartProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -144,15 +146,16 @@ export function TradeChart({
       }
 
       const markers: SeriesMarker<Time>[] = [];
+      const short = side === "short";
       if (entryTime && entryPrice != null) {
         const t = Math.floor(new Date(entryTime).getTime() / 1000);
         const nearest = nearestTime(mapped, t);
         if (nearest != null) {
           markers.push({
             time: nearest,
-            position: "belowBar",
+            position: short ? "aboveBar" : "belowBar",
             color: "#1f7a54",
-            shape: "arrowUp",
+            shape: short ? "arrowDown" : "arrowUp",
             text: `Вход ${entryPrice}`,
           });
         }
@@ -163,9 +166,9 @@ export function TradeChart({
         if (nearest != null) {
           markers.push({
             time: nearest,
-            position: "aboveBar",
+            position: short ? "belowBar" : "aboveBar",
             color: "#c0392b",
-            shape: "arrowDown",
+            shape: short ? "arrowUp" : "arrowDown",
             text: `Выход ${exitPrice}`,
           });
         }
@@ -187,6 +190,7 @@ export function TradeChart({
     entryTime,
     exitPrice,
     exitTime,
+    side,
   ]);
 
   React.useEffect(() => {

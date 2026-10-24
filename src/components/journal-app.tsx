@@ -15,9 +15,10 @@ import {
   useStackedPanel,
   type PanelEntry,
 } from "./ui";
-import { ArrowDownToLine, ArrowUpFromLine, Check, Plus, Settings, XCircle } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Check, Plus, XCircle } from "lucide-react";
 import {
   CLOSE_REASON_LABELS,
+  SIDE_LABELS,
   formatDateTime,
   formatMoney,
   type CashflowKind,
@@ -151,13 +152,6 @@ function JournalShell() {
               onDone={load}
             />
           );
-        case "settings":
-          return (
-            <SettingsPanel
-              startingBalance={data?.stats.startingBalance ?? 0}
-              onDone={load}
-            />
-          );
         case "create-cashflow":
           return (
             <CashflowPanel
@@ -200,30 +194,17 @@ function JournalShell() {
   );
 
   return (
-    <div className="relative mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 pb-24 pt-6 sm:px-6">
-      <header className="mb-6 flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            Broker Journal
-          </p>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Журнал брокера
-          </h1>
-          <p className="max-w-xl text-sm text-muted-foreground">
-            Учёт открытий и закрытий фьючерсов: баланс, маржа, PnL и графики входа/выхода.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="mt-1 shrink-0"
-          disabled={!data}
-          onClick={() => push({ type: "settings", title: "Настройки" })}
-        >
-          <Settings className="size-4" />
-          Настройки
-        </Button>
+    <div className="relative mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 pb-8 pt-6 sm:px-6">
+      <header className="mb-6 flex flex-col gap-1">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Broker Journal
+        </p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          Журнал брокера
+        </h1>
+        <p className="max-w-xl text-sm text-muted-foreground">
+          Учёт открытий и закрытий фьючерсов: баланс, маржа, PnL и графики входа/выхода.
+        </p>
       </header>
 
       {status === "loading" && !data ? <LoadingState label="Загрузка реестра…" /> : null}
@@ -429,14 +410,18 @@ function JournalShell() {
                             <span>{formatDateTime(item.at)}</span>
                             {item.kind === "open" ? (
                               <span>
-                                ×{formatMoney(item.quantity, 2)} · плечо {formatMoney(item.leverage, 0)}
+                                {SIDE_LABELS[item.side]} · ×{formatMoney(item.quantity, 2)} · плечо{" "}
+                                {formatMoney(item.leverage, 0)}
                                 {" · "}
                                 покупка {formatMoney(item.purchase)}
                                 {" · "}
                                 затраты {formatMoney(item.cost)}
+                                {item.spread != null ? ` · спред ${item.spread > 0 ? "+" : ""}${formatMoney(item.spread)}` : ""}
                               </span>
                             ) : (
-                              <span>{CLOSE_REASON_LABELS[item.closeReason]}</span>
+                              <span>
+                                {SIDE_LABELS[item.side]} · {CLOSE_REASON_LABELS[item.closeReason]}
+                              </span>
                             )}
                           </span>
                         </span>
@@ -491,75 +476,6 @@ function JournalShell() {
         </button>
       ) : null}
     </div>
-  );
-}
-
-function SettingsPanel({
-  startingBalance,
-  onDone,
-}: {
-  startingBalance: number;
-  onDone: () => Promise<void> | void;
-}) {
-  const { clear } = useStackedPanel();
-  const [value, setValue] = React.useState(String(startingBalance));
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const next = Number(value);
-      if (!Number.isFinite(next)) throw new Error("Некорректное поле: начальная сумма");
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startingBalance: next }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error ?? "Ошибка сохранения");
-      await onDone();
-      clear();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка сохранения");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form onSubmit={(event) => void onSubmit(event)} className="flex min-h-full flex-col">
-      <PanelBody>
-        <PanelSection title="Счёт">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="starting-balance">Начальная сумма</Label>
-            <Input
-              id="starting-balance"
-              required
-              type="number"
-              step="any"
-              inputMode="decimal"
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Баланс считается от этой суммы: плюс вводы и заработанное, минус выводы и маржа открытых позиций.
-            </p>
-          </div>
-        </PanelSection>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      </PanelBody>
-      <PanelActions>
-        <Button type="button" variant="outline" className="flex-1" onClick={() => clear()}>
-          Отмена
-        </Button>
-        <Button type="submit" className="flex-1" disabled={busy}>
-          {busy ? "Сохранение…" : "Сохранить"}
-        </Button>
-      </PanelActions>
-    </form>
   );
 }
 

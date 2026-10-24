@@ -36,6 +36,8 @@ export type SerializedOpen = {
   takeProfit: number | null;
   leverage: number;
   quantity: number;
+  side: "long" | "short";
+  cashAmount: number | null;
   openReason: string;
   close: {
     id: string;
@@ -80,6 +82,8 @@ export function CreateOpenPanel({ onDone }: { onDone: RefreshFn }) {
             takeProfit: parseOptionalNumber(values.takeProfit),
             leverage: parseRequiredNumber(values.leverage, "плечо"),
             quantity: parseRequiredNumber(values.quantity, "количество"),
+            side: values.side,
+            cashAmount: parseOptionalNumber(values.cashAmount),
             openReason: values.openReason,
           }),
         });
@@ -186,6 +190,8 @@ export function ViewOpenPanel({
           takeProfit: open.takeProfit == null ? "" : String(open.takeProfit),
           leverage: String(open.leverage),
           quantity: String(open.quantity),
+          side: open.side,
+          cashAmount: open.cashAmount == null ? "" : String(open.cashAmount),
           openReason: open.openReason,
         }}
         onCancel={() => setEditing(false)}
@@ -203,6 +209,8 @@ export function ViewOpenPanel({
               takeProfit: parseOptionalNumber(values.takeProfit),
               leverage: parseRequiredNumber(values.leverage, "плечо"),
               quantity: parseRequiredNumber(values.quantity, "количество"),
+              side: values.side,
+              cashAmount: parseOptionalNumber(values.cashAmount),
               openReason: values.openReason,
             }),
           });
@@ -226,6 +234,7 @@ export function ViewOpenPanel({
           <AttrGrid
             rows={[
               ["Инструмент", open.instrument],
+              ["Направление", open.side === "short" ? "Шорт" : "Лонг"],
               ["Открыто", formatDateTime(open.openedAt)],
               ["Цена", formatMoney(open.price, 4)],
               ["Количество", formatMoney(open.quantity, 4)],
@@ -240,6 +249,8 @@ export function ViewOpenPanel({
             quantity={open.quantity}
             leverage={open.leverage}
             commission={open.commission + (open.close?.commission ?? 0)}
+            cashAmount={open.cashAmount}
+            spreadCommission={open.commission}
           />
           {open.openReason ? (
             <p className="rounded-lg bg-muted/60 px-3 py-2 text-sm leading-relaxed">
@@ -273,6 +284,7 @@ export function ViewOpenPanel({
             takeProfit={open.takeProfit}
             entryPrice={open.price}
             entryTime={open.openedAt}
+            side={open.side}
           />
         </PanelSection>
       </PanelBody>
@@ -394,6 +406,7 @@ export function ViewClosePanel({
           <AttrGrid
             rows={[
               ["Инструмент", close.open.instrument],
+              ["Направление", close.open.side === "short" ? "Шорт" : "Лонг"],
               ["Закрыто", formatDateTime(close.closedAt)],
               ["Цена выхода", formatMoney(close.price, 4)],
               ["Комиссия закрытия", formatMoney(close.commission)],
@@ -407,6 +420,8 @@ export function ViewClosePanel({
             quantity={close.open.quantity}
             leverage={close.open.leverage}
             commission={close.open.commission + close.commission}
+            cashAmount={close.open.cashAmount}
+            spreadCommission={close.open.commission}
           />
           <button
             type="button"
@@ -433,6 +448,7 @@ export function ViewClosePanel({
             entryTime={close.open.openedAt}
             exitPrice={close.price}
             exitTime={close.closedAt}
+            side={close.open.side}
           />
         </PanelSection>
       </PanelBody>

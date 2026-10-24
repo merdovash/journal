@@ -36,6 +36,7 @@ test("parses a Walt long-open screen", () => {
     takeProfit: "",
     leverage: "2",
     quantity: "68.243888",
+    side: "long",
     openReason: "",
   });
   assert.equal(parsed.warnings.length, 1);
@@ -50,12 +51,11 @@ test("accepts the approx sign and a cyrillic multiply", () => {
   assert.equal(parsed.values.leverage, "2");
 });
 
-test("rejects a short", () => {
-  assert.throws(
-    () => parseOpenScreenshot("Шорт открыт\n2х Шорт\nДата\n9 октября 2026 г. в 23:23"),
-    (error: unknown) =>
-      error instanceof ScreenshotParseError && /шорт/i.test(error.message)
-  );
+test("parses a Walt short-open screen", () => {
+  const parsed = parseOpenScreenshot(WALT_COLUMN.replaceAll("Лонг", "Шорт"));
+  assert.equal(parsed.values.side, "short");
+  assert.equal(parsed.values.instrument, "GRAM");
+  assert.equal(parsed.values.price, "1.446");
 });
 
 test("rejects a close screen", () => {
@@ -92,6 +92,7 @@ test("parses a Walt live position screen", () => {
     takeProfit: "84112.6",
     leverage: "2",
     quantity: "0.00119993",
+    side: "long",
     openReason: "",
   });
   const notes = parsed.warnings.join("\n");
@@ -101,11 +102,11 @@ test("parses a Walt live position screen", () => {
   assert.match(notes, /-0\.00446/);
 });
 
-test("rejects a live short position", () => {
-  assert.throws(
-    () => parseOpenScreenshot(WALT_POSITION.replace("ЛОНГ", "ШОРТ")),
-    (error: unknown) => error instanceof ScreenshotParseError && /шорт/i.test(error.message)
-  );
+test("parses a live short position", () => {
+  const parsed = parseOpenScreenshot(WALT_POSITION.replace("ЛОНГ", "ШОРТ"));
+  assert.equal(parsed.values.side, "short");
+  assert.equal(parsed.values.price, "82459.7");
+  assert.equal(parsed.values.quantity, "0.00119993");
 });
 
 test("finds a cyrillic ticker word after the quantity", () => {

@@ -9,6 +9,8 @@ export type TradeClose = {
   closeReason: CloseReason;
 };
 
+export type TradeSide = "long" | "short";
+
 export type TradeOpen = {
   id: string;
   openedAt: string;
@@ -19,6 +21,9 @@ export type TradeOpen = {
   takeProfit: number | string | null;
   leverage: number | string;
   quantity: number | string;
+  side: TradeSide;
+  /** Signed cash at open: negative if debited, positive if received. */
+  cashAmount: number | string | null;
   openReason: string;
 };
 
@@ -37,15 +42,17 @@ function round6(n: number): number {
   return Math.round(n * 1e6) / 1e6;
 }
 
-/** Long PnL: (close - open) * qty - both commissions */
+/** Long: (close − open) × qty. Short: (open − close) × qty. Both commissions are subtracted. */
 export function calcNetPnl(
   openPrice: number,
   closePrice: number,
   quantity: number,
   openCommission: number,
-  closeCommission: number
+  closeCommission: number,
+  side: TradeSide = "long"
 ): number {
-  return (closePrice - openPrice) * quantity - openCommission - closeCommission;
+  const move = side === "short" ? openPrice - closePrice : closePrice - openPrice;
+  return move * quantity - openCommission - closeCommission;
 }
 
 export function calcMargin(
@@ -70,6 +77,16 @@ export function calcOpenCost(
   commission: number
 ): number {
   return round6(calcMargin(price, quantity, leverage) + commission);
+}
+
+/**
+ * Spread versus the calculated debit.
+ * cashAmount is signed (minus = written off, plus = received).
+ * Expected cash change is −cost, so spread = cashAmount − (−cost).
+ * Zero means the cash matched the model. Negative means more was written off.
+ */
+export function calcOpenSpread(cost: number, cashAmount: number): number {
+  return round6(cashAmount + cost);
 }
 
 export type CashflowKind = "deposit" | "withdrawal";
@@ -121,7 +138,8 @@ export function computeStats(
         d(open.close.price),
         d(open.quantity),
         openComm,
-        closeComm
+        closeComm,
+        open.side
       );
     } else {
       invested += calcMargin(d(open.price), d(open.quantity), d(open.leverage));
@@ -151,6 +169,9 @@ export type RegistryItem =
       commission: number;
       quantity: number;
       leverage: number;
+      side: TradeSide;
+      cashAmount: number | null;
+      spread: number | null;
       openReason: string;
       stopLoss: number | null;
       takeProfit: number | null;
@@ -171,6 +192,7 @@ export type RegistryItem =
       openPrice: number;
       openCommission: number;
       quantity: number;
+      side: TradeSide;
       pnl: number;
     }
   | {
@@ -195,6 +217,13 @@ export function toRegistryItems(
   const items: RegistryItem[] = [];
 
   for (const open of opens) {
+    const openCost = calcOpenCost(
+      d(open.price),
+      d(open.quantity),
+      d(open.leverage),
+      d(open.commission)
+    );
+    const cashAmount = open.cashAmount == null ? null : d(open.cashAmount);
     items.push({
       kind: "open",
       id: open.id,
@@ -204,6 +233,9 @@ export function toRegistryItems(
       commission: d(open.commission),
       quantity: d(open.quantity),
       leverage: d(open.leverage),
+      side: open.side,
+      cashAmount,
+      spread: cashAmount == null ? null : calcOpenSpread(openCost, cashAmount),
       openReason: open.openReason,
       stopLoss: open.stopLoss == null ? null : d(open.stopLoss),
       takeProfit: open.takeProfit == null ? null : d(open.takeProfit),
@@ -224,7 +256,8 @@ export function toRegistryItems(
         d(open.close.price),
         d(open.quantity),
         d(open.commission),
-        d(open.close.commission)
+        d(open.close.commission),
+        open.side
       );
       items.push({
         kind: "close",
@@ -238,6 +271,7 @@ export function toRegistryItems(
         openPrice: d(open.price),
         openCommission: d(open.commission),
         quantity: d(open.quantity),
+        side: open.side,
         pnl,
       });
     }
@@ -268,6 +302,8 @@ export function serializeOpen(open: TradeOpenWithClose) {
     takeProfit: open.takeProfit == null ? null : d(open.takeProfit),
     leverage: d(open.leverage),
     quantity: d(open.quantity),
+    side: open.side,
+    cashAmount: open.cashAmount == null ? null : d(open.cashAmount),
     openReason: open.openReason,
     close: open.close
       ? {
@@ -281,7 +317,8 @@ export function serializeOpen(open: TradeOpenWithClose) {
             d(open.close.price),
             d(open.quantity),
             d(open.commission),
-            d(open.close.commission)
+            d(open.close.commission),
+            open.side
           ),
         }
       : null,
@@ -304,6 +341,11 @@ export function formatDateTime(iso: string): string {
     minute: "2-digit",
   }).format(new Date(iso));
 }
+
+export const SIDE_LABELS: Record<TradeSide, string> = {
+  long: "Лонг",
+  short: "Шорт",
+};
 
 export const CLOSE_REASON_LABELS: Record<CloseReason, string> = {
   manual: "Вручную",

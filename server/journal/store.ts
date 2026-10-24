@@ -14,6 +14,8 @@ type OpenRow = {
   leverage: number | string
   quantity: number | string
   open_reason: string
+  side: string
+  cash_amount: number | string | null
   close_id: string | null
   closed_at: string | null
   close_price: number | string | null
@@ -23,7 +25,7 @@ type OpenRow = {
 
 const OPEN_SELECT = `
   SELECT o.id, o.opened_at, o.instrument, o.price, o.commission,
-         o.stop_loss, o.take_profit, o.leverage, o.quantity, o.open_reason,
+         o.stop_loss, o.take_profit, o.leverage, o.quantity, o.open_reason, o.side, o.cash_amount,
          c.id AS close_id, c.closed_at, c.price AS close_price,
          c.commission AS close_commission, c.close_reason
   FROM journal_opens o
@@ -41,6 +43,8 @@ function mapOpen(row: OpenRow): TradeOpenWithClose {
     takeProfit: row.take_profit,
     leverage: row.leverage,
     quantity: row.quantity,
+    side: row.side === 'short' ? 'short' : 'long',
+    cashAmount: row.cash_amount == null ? null : row.cash_amount,
     openReason: row.open_reason,
     close:
       row.close_id && row.closed_at && row.close_price != null && row.close_commission != null && row.close_reason
@@ -108,6 +112,8 @@ export type OpenInput = {
   takeProfit: number | null
   leverage: number
   quantity: number
+  side: 'long' | 'short'
+  cashAmount: number | null
   openReason: string
 }
 
@@ -116,8 +122,8 @@ export async function createOpen(userId: string, input: OpenInput): Promise<Trad
   const inserted = await pool.query<{ id: string }>(
     `INSERT INTO journal_opens (
        user_id, opened_at, instrument, price, commission, stop_loss, take_profit,
-       leverage, quantity, open_reason
-     ) VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8, $9, $10)
+       leverage, quantity, side, cash_amount, open_reason
+     ) VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      RETURNING id`,
     [
       userId,
@@ -129,6 +135,8 @@ export async function createOpen(userId: string, input: OpenInput): Promise<Trad
       input.takeProfit,
       input.leverage,
       input.quantity,
+      input.side,
+      input.cashAmount,
       input.openReason,
     ],
   )
@@ -159,6 +167,8 @@ export async function updateOpen(
           : Number(existing.takeProfit),
     leverage: patch.leverage ?? Number(existing.leverage),
     quantity: patch.quantity ?? Number(existing.quantity),
+    side: patch.side ?? existing.side,
+    cashAmount: patch.cashAmount !== undefined ? patch.cashAmount : existing.cashAmount == null ? null : Number(existing.cashAmount),
     openReason: patch.openReason ?? existing.openReason,
   }
   const pool = getPool()
@@ -172,7 +182,9 @@ export async function updateOpen(
        take_profit = $8,
        leverage = $9,
        quantity = $10,
-       open_reason = $11,
+       side = $11,
+       cash_amount = $12,
+       open_reason = $13,
        updated_at = now()
      WHERE user_id = $1 AND id = $2`,
     [
@@ -186,6 +198,8 @@ export async function updateOpen(
       next.takeProfit,
       next.leverage,
       next.quantity,
+      next.side,
+      next.cashAmount,
       next.openReason,
     ],
   )

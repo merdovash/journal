@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { calcOpenCost, calcPurchase, computeStats, type TradeOpenWithClose } from "./journal";
+import { calcNetPnl, calcOpenCost, calcOpenSpread, calcPurchase, computeStats, type TradeOpenWithClose } from "./journal";
 
 test("purchase is entry price times quantity", () => {
   assert.equal(calcPurchase(1.446, 68.243888), 98.680662);
@@ -18,6 +18,8 @@ test("balance adds deposits and subtracts withdrawals and open margin", () => {
     takeProfit: null,
     leverage: 10,
     quantity: 2,
+    side: "long",
+    cashAmount: null,
     openReason: "",
     close: null,
   };
@@ -29,6 +31,18 @@ test("balance adds deposits and subtracts withdrawals and open margin", () => {
   assert.equal(stats.withdrawn, 200);
   assert.equal(stats.invested, 20);
   assert.equal(stats.balance, 1280);
+});
+
+test("short pnl is the opposite of a long", () => {
+  assert.equal(calcNetPnl(10, 12, 2, 1, 1, "long"), 2);
+  assert.equal(calcNetPnl(10, 12, 2, 1, 1, "short"), -6);
+});
+
+test("spread is actual cash minus the expected debit", () => {
+  const cost = calcOpenCost(1.446, 68.243888, 2, 0.088);
+  assert.equal(calcOpenSpread(cost, -cost), 0);
+  assert.equal(calcOpenSpread(cost, -50), -0.571669);
+  assert.equal(calcOpenSpread(10, 2), 12);
 });
 
 test("cost is margin plus commission", () => {

@@ -15,6 +15,7 @@ export type ParsedOpenValues = {
   takeProfit: string;
   leverage: string;
   quantity: string;
+  side: "long" | "short";
   openReason: string;
 };
 
@@ -61,15 +62,9 @@ export function parseOpenScreenshot(text: string): ParsedOpenScreenshot {
     );
   }
 
-  const shortTitle = /шорт\s+открыт/i.test(source);
-  const longTitle = /лонг\s+открыт/i.test(source);
-  if (shortTitle || (/шорт/i.test(source) && !/лонг/i.test(source))) {
-    throw new ScreenshotParseError(
-      "На скриншоте шорт. Журнал пока считает результат только для лонга, поэтому поля не заполнены."
-    );
-  }
-  if (!longTitle && !(/лонг/i.test(source) && /открыт/i.test(source))) {
-    throw new ScreenshotParseError("Не похоже на экран открытия лонга в Walt.");
+  const side = readPositionSide(source);
+  if (!side) {
+    throw new ScreenshotParseError("Не похоже на экран открытия позиции в Walt.");
   }
 
   const volume = readVolume(source);
@@ -111,6 +106,7 @@ export function parseOpenScreenshot(text: string): ParsedOpenScreenshot {
       takeProfit: "",
       leverage,
       quantity: volume.quantity,
+      side,
       openReason: "",
     },
     warnings,
@@ -124,12 +120,7 @@ export function parseOpenScreenshot(text: string): ParsedOpenScreenshot {
  */
 function parseLivePosition(source: string): ParsedOpenScreenshot {
   const side = readPositionSide(source);
-  if (side === "short") {
-    throw new ScreenshotParseError(
-      "На скриншоте шорт. Журнал пока считает результат только для лонга, поэтому поля не заполнены."
-    );
-  }
-  if (side !== "long") {
+  if (!side) {
     throw new ScreenshotParseError("Не удалось понять, лонг это или шорт.");
   }
 
@@ -165,6 +156,7 @@ function parseLivePosition(source: string): ParsedOpenScreenshot {
       takeProfit: takeProfit ?? "",
       leverage,
       quantity,
+      side,
       openReason: "",
     },
     warnings,

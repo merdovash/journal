@@ -12,6 +12,8 @@ import {
 } from "./ui";
 import type { ParsedCloseValues } from "../lib/screenshot/parse-close";
 import type { ParsedOpenValues } from "../lib/screenshot/parse-open";
+import type { TradeSide } from "../lib/journal";
+import { SIDE_LABELS } from "../lib/journal";
 import { ScreenshotCloseImport, ScreenshotOpenImport } from "./screenshot-open-import";
 import { TradeAmountSummary } from "./trade-amounts";
 
@@ -24,6 +26,8 @@ export type OpenFormValues = {
   takeProfit: string;
   leverage: string;
   quantity: string;
+  side: TradeSide;
+  cashAmount: string;
   openReason: string;
 };
 
@@ -36,6 +40,8 @@ const emptyOpen: OpenFormValues = {
   takeProfit: "",
   leverage: "10",
   quantity: "1",
+  side: "long",
+  cashAmount: "",
   openReason: "",
 };
 
@@ -110,6 +116,28 @@ export function OpenTradeForm({
           </Field>
         </PanelSection>
         <PanelSection title="Параметры">
+          <Field label="Направление">
+            <div className="grid grid-cols-2 gap-2">
+              {(["long", "short"] as const).map((side) => {
+                const selected = values.side === side;
+                return (
+                  <button
+                    key={side}
+                    type="button"
+                    aria-pressed={selected}
+                    className={`h-10 rounded-lg border text-sm font-medium ${
+                      selected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-foreground"
+                    }`}
+                    onClick={() => setValues((current) => ({ ...current, side }))}
+                  >
+                    {SIDE_LABELS[side]}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Цена">
               <Input required type="number" step="any" value={values.price} onChange={set("price")} />
@@ -156,6 +184,19 @@ export function OpenTradeForm({
               />
             </Field>
           </div>
+          <Field label="Списано или получено">
+            <Input
+              type="number"
+              step="any"
+              inputMode="decimal"
+              placeholder="Необязательно"
+              value={values.cashAmount}
+              onChange={set("cashAmount")}
+            />
+            <p className="text-xs text-muted-foreground">
+              Минус — деньги списали, плюс — получили. Пусто, если сумма неизвестна. Спред — разница с расчётными затратами.
+            </p>
+          </Field>
         </PanelSection>
         <PanelSection title="Итог">
           <TradeAmountSummary
@@ -163,6 +204,7 @@ export function OpenTradeForm({
             quantity={Number(values.quantity)}
             leverage={Number(values.leverage)}
             commission={Number(values.commission)}
+            cashAmount={values.cashAmount.trim() ? Number(values.cashAmount) : null}
           />
         </PanelSection>
         <PanelSection title="Причина">

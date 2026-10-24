@@ -24,6 +24,7 @@ test(
         takeProfit: "",
         leverage: "2",
         quantity: "68.243888",
+        side: "long",
         openReason: "",
       });
       assert.match(parsed.warnings.join("\n"), /\+15/);

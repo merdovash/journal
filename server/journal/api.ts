@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { z } from 'zod'
-import { calcNetPnl, computeStats, d, serializeOpen, toRegistryItems, type CashflowKind, type CloseReason } from '../../src/lib/journal'
+import { calcNetPnl, computeStats, d, serializeOpen, toRegistryItems, type CashflowKind, type CloseReason, type TradeSide } from '../../src/lib/journal'
 import { getUserFromRequest } from '../auth/session'
 import { readJsonBody, sendJson } from '../http/util'
 import { handleScreenshotApi } from '../screenshot/api'
@@ -22,6 +22,8 @@ const openSchema = z.object({
   takeProfit: z.number().positive().nullable().optional(),
   leverage: z.number().positive(),
   quantity: z.number().positive(),
+  side: z.enum(['long', 'short']).default('long'),
+  cashAmount: z.number().finite().nullable().optional(),
   openReason: z.string().max(2000).default(''),
 })
 
@@ -45,6 +47,8 @@ function openInput(data: z.infer<typeof openSchema>): store.OpenInput {
     takeProfit: data.takeProfit ?? null,
     leverage: data.leverage,
     quantity: data.quantity,
+    side: data.side,
+    cashAmount: data.cashAmount ?? null,
     openReason: data.openReason ?? '',
   }
 }
@@ -59,7 +63,14 @@ function closePayload(open: NonNullable<Awaited<ReturnType<typeof store.getOpen>
     price: d(close.price),
     commission: d(close.commission),
     closeReason: close.closeReason,
-    pnl: calcNetPnl(d(open.price), d(close.price), d(open.quantity), d(open.commission), d(close.commission)),
+    pnl: calcNetPnl(
+      d(open.price),
+      d(close.price),
+      d(open.quantity),
+      d(open.commission),
+      d(close.commission),
+      open.side,
+    ),
     open: serializeOpen(open),
   }
 }
@@ -209,6 +220,8 @@ export async function handleJournalApi(
       if (data.takeProfit !== undefined) patch.takeProfit = data.takeProfit
       if (data.leverage !== undefined) patch.leverage = data.leverage
       if (data.quantity !== undefined) patch.quantity = data.quantity
+      if (data.side !== undefined) patch.side = data.side as TradeSide
+      if (data.cashAmount !== undefined) patch.cashAmount = data.cashAmount
       if (data.openReason !== undefined) patch.openReason = data.openReason
       const open = await store.updateOpen(user.id, id, patch)
       if (!open) {
@@ -251,6 +264,7 @@ export async function handleJournalApi(
                 d(open.quantity),
                 d(open.commission),
                 d(open.close.commission),
+                open.side,
               ),
             },
           ]
