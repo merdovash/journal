@@ -1,10 +1,34 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { calcOpenCost, calcPurchase } from "./journal";
+import { calcOpenCost, calcPurchase, computeStats, type TradeOpenWithClose } from "./journal";
 
 test("purchase is entry price times quantity", () => {
   assert.equal(calcPurchase(1.446, 68.243888), 98.680662);
   assert.equal(calcPurchase(82459.7, 0.00119993), 98.945868);
+});
+
+test("balance adds deposits and subtracts withdrawals and open margin", () => {
+  const open: TradeOpenWithClose = {
+    id: "o",
+    openedAt: "2026-01-01T00:00:00.000Z",
+    instrument: "GC=F",
+    price: 100,
+    commission: 1,
+    stopLoss: null,
+    takeProfit: null,
+    leverage: 10,
+    quantity: 2,
+    openReason: "",
+    close: null,
+  };
+  const stats = computeStats(1000, [open], [
+    { id: "d", kind: "deposit", amount: 500, occurredAt: "2026-01-02T00:00:00.000Z", note: "" },
+    { id: "w", kind: "withdrawal", amount: 200, occurredAt: "2026-01-03T00:00:00.000Z", note: "" },
+  ]);
+  assert.equal(stats.deposited, 500);
+  assert.equal(stats.withdrawn, 200);
+  assert.equal(stats.invested, 20);
+  assert.equal(stats.balance, 1280);
 });
 
 test("cost is margin plus commission", () => {

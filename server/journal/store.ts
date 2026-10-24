@@ -1,4 +1,4 @@
-import type { CloseReason, TradeOpenWithClose } from '../../src/lib/journal'
+import type { Cashflow, CashflowKind, CloseReason, TradeOpenWithClose } from '../../src/lib/journal'
 import { getPool } from '../db/pool'
 
 const DEFAULT_BALANCE = 100000
@@ -273,4 +273,58 @@ export function httpStatus(error: unknown): number | null {
     return error.status
   }
   return null
+}
+
+type CashflowRow = {
+  id: string
+  kind: string
+  amount: number | string
+  occurred_at: string
+  note: string
+}
+
+export async function listCashflows(userId: string): Promise<Cashflow[]> {
+  const pool = getPool()
+  const result = await pool.query<CashflowRow>(
+    `SELECT id, kind, amount, occurred_at, note
+     FROM journal_cashflows
+     WHERE user_id = $1
+     ORDER BY occurred_at DESC`,
+    [userId],
+  )
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    kind: row.kind as CashflowKind,
+    amount: row.amount,
+    occurredAt: String(row.occurred_at),
+    note: row.note ?? '',
+  }))
+}
+
+export async function createCashflow(
+  userId: string,
+  input: { kind: CashflowKind; amount: number; occurredAt: string; note: string },
+): Promise<Cashflow> {
+  const pool = getPool()
+  const inserted = await pool.query<CashflowRow>(
+    `INSERT INTO journal_cashflows (user_id, kind, amount, occurred_at, note)
+     VALUES ($1, $2, $3, $4::timestamptz, $5)
+     RETURNING id, kind, amount, occurred_at, note`,
+    [userId, input.kind, input.amount, input.occurredAt, input.note],
+  )
+  const row = inserted.rows[0]
+  if (!row) throw new Error('Не удалось записать движение средств')
+  return {
+    id: String(row.id),
+    kind: row.kind as CashflowKind,
+    amount: row.amount,
+    occurredAt: String(row.occurred_at),
+    note: row.note ?? '',
+  }
+}
+
+export async function deleteCashflow(userId: string, id: string): Promise<boolean> {
+  const pool = getPool()
+  const result = await pool.query(`DELETE FROM journal_cashflows WHERE user_id = $1 AND id = $2`, [userId, id])
+  return (result.rowCount ?? 0) > 0
 }

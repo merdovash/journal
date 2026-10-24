@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { JournalApp } from './components/journal-app'
 import { Button, Input, Label, LoadingState } from './components/ui'
 import { portalLoginUrl } from './lib/portalUrl'
+import { useTheme } from './lib/useTheme'
+import type { ThemeMode } from './lib/theme'
 import { useAuthStore } from './store/authStore'
 
 export default function App() {
@@ -24,7 +26,11 @@ export default function App() {
 
   if (!user) {
     return (
-      <main className="min-h-dvh">
+      <main className="relative min-h-dvh">
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-3">
+          <AppVersion />
+          <ThemeControl />
+        </div>
         <LoginGate />
       </main>
     )
@@ -32,7 +38,9 @@ export default function App() {
 
   return (
     <main className="min-h-dvh">
-      <div className="mx-auto flex w-full max-w-3xl items-center justify-end gap-3 px-4 pt-4 sm:px-6">
+      <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-end gap-3 px-4 pt-4 sm:px-6">
+        <AppVersion />
+        <ThemeControl />
         <p className="truncate text-xs text-muted-foreground" title={user.email}>
           {user.email}
         </p>
@@ -42,6 +50,37 @@ export default function App() {
       </div>
       <JournalApp />
     </main>
+  )
+}
+
+function AppVersion() {
+  return (
+    <p
+      className="shrink-0 select-none text-[10px] leading-none text-muted-foreground"
+      title={`Версия ${__APP_VERSION__}`}
+    >
+      версия {__APP_VERSION__}
+    </p>
+  )
+}
+
+function ThemeControl() {
+  const { mode, setMode } = useTheme()
+
+  return (
+    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span>Тема</span>
+      <select
+        aria-label="Тема оформления"
+        value={mode}
+        onChange={(event) => setMode(event.target.value as ThemeMode)}
+        className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <option value="system">Как в системе</option>
+        <option value="light">Светлая</option>
+        <option value="dark">Тёмная</option>
+      </select>
+    </label>
   )
 }
 

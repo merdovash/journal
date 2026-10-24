@@ -72,21 +72,42 @@ export function calcOpenCost(
   return round6(calcMargin(price, quantity, leverage) + commission);
 }
 
+export type CashflowKind = "deposit" | "withdrawal";
+
+export type Cashflow = {
+  id: string;
+  kind: CashflowKind;
+  amount: number | string;
+  occurredAt: string;
+  note: string;
+};
+
 export type JournalStats = {
   startingBalance: number;
   balance: number;
   invested: number;
   earned: number;
   commissions: number;
+  deposited: number;
+  withdrawn: number;
 };
 
 export function computeStats(
   startingBalance: number,
-  opens: TradeOpenWithClose[]
+  opens: TradeOpenWithClose[],
+  cashflows: Cashflow[] = []
 ): JournalStats {
   let commissions = 0;
   let earned = 0;
   let invested = 0;
+  let deposited = 0;
+  let withdrawn = 0;
+
+  for (const flow of cashflows) {
+    const amount = d(flow.amount);
+    if (flow.kind === "deposit") deposited += amount;
+    else withdrawn += amount;
+  }
 
   for (const open of opens) {
     const openComm = d(open.commission);
@@ -107,7 +128,7 @@ export function computeStats(
     }
   }
 
-  const balance = startingBalance + earned - invested;
+  const balance = startingBalance + deposited - withdrawn + earned - invested;
 
   return {
     startingBalance: round6(startingBalance),
@@ -115,6 +136,8 @@ export function computeStats(
     invested: round6(invested),
     earned: round6(earned),
     commissions: round6(commissions),
+    deposited: round6(deposited),
+    withdrawn: round6(withdrawn),
   };
 }
 
@@ -149,9 +172,26 @@ export type RegistryItem =
       openCommission: number;
       quantity: number;
       pnl: number;
+    }
+  | {
+      kind: "deposit";
+      id: string;
+      at: string;
+      amount: number;
+      note: string;
+    }
+  | {
+      kind: "withdrawal";
+      id: string;
+      at: string;
+      amount: number;
+      note: string;
     };
 
-export function toRegistryItems(opens: TradeOpenWithClose[]): RegistryItem[] {
+export function toRegistryItems(
+  opens: TradeOpenWithClose[],
+  cashflows: Cashflow[] = []
+): RegistryItem[] {
   const items: RegistryItem[] = [];
 
   for (const open of opens) {
@@ -201,6 +241,16 @@ export function toRegistryItems(opens: TradeOpenWithClose[]): RegistryItem[] {
         pnl,
       });
     }
+  }
+
+  for (const flow of cashflows) {
+    items.push({
+      kind: flow.kind,
+      id: flow.id,
+      at: iso(flow.occurredAt),
+      amount: d(flow.amount),
+      note: flow.note,
+    });
   }
 
   items.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());

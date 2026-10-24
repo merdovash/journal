@@ -1,12 +1,17 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { z } from 'zod'
-import { calcNetPnl, computeStats, d, serializeOpen, toRegistryItems, type CloseReason } from '../../src/lib/journal'
+import { calcNetPnl, computeStats, d, serializeOpen, toRegistryItems, type CashflowKind, type CloseReason } from '../../src/lib/journal'
 import { getUserFromRequest } from '../auth/session'
 import { readJsonBody, sendJson } from '../http/util'
 import { handleScreenshotApi } from '../screenshot/api'
 import * as store from './store'
 
-const closeReasonSchema = z.enum(['manual', 'take_profit', 'stop_loss'])
+const cashflowSchema = z.object({
+  kind: z.enum(['deposit', 'withdrawal']),
+  amount: z.number().positive(),
+  occurredAt: z.string().min(1),
+  note: z.string().max(500).optional(),
+})
 
 const openSchema = z.object({
   openedAt: z.string().min(1),
@@ -19,6 +24,8 @@ const openSchema = z.object({
   quantity: z.number().positive(),
   openReason: z.string().max(2000).default(''),
 })
+
+const closeReasonSchema = z.enum(['manual', 'take_profit', 'stop_loss'])
 
 const closeSchema = z.object({
   openId: z.string().min(1),
@@ -94,7 +101,8 @@ export async function handleJournalApi(
     pathname === '/api/registry' ||
     pathname === '/api/settings' ||
     pathname === '/api/opens' ||
-    pathname === '/api/closes'
+    pathname === '/api/closes' ||
+    pathname === '/api/cashflows'
   if (!journal) return false
 
   const method = req.method ?? 'GET'
@@ -103,13 +111,14 @@ export async function handleJournalApi(
 
   try {
     if (pathname === '/api/registry' && method === 'GET') {
-      const [startingBalance, opens] = await Promise.all([
+      const [startingBalance, opens, cashflows] = await Promise.all([
         store.ensureSettings(user.id),
         store.listOpens(user.id),
+        store.listCashflows(user.id),
       ])
       sendJson(res, 200, {
-        stats: computeStats(startingBalance, opens),
-        items: toRegistryItems(opens),
+        stats: computeStats(startingBalance, opens, cashflows),
+        items: toRegistryItems(opens, cashflows),
         openPositions: opens
           .filter((open) => !open.close)
           .map((open) => ({
@@ -132,6 +141,35 @@ export async function handleJournalApi(
       const body = await readJsonBody<{ startingBalance?: number }>(req)
       const startingBalance = z.number().finite().parse(body.startingBalance)
       sendJson(res, 200, { startingBalance: await store.updateSettings(user.id, startingBalance) })
+      return true
+    }
+
+    if (pathname === '/api/cashflows' && method === 'POST') {
+      const data = cashflowSchema.parse(await readJsonBody(req))
+      const saved = await store.createCashflow(user.id, {
+        kind: data.kind as CashflowKind,
+        amount: data.amount,
+        occurredAt: data.occurredAt,
+        note: data.note?.trim() ?? '',
+      })
+      sendJson(res, 201, {
+        id: saved.id,
+        kind: saved.kind,
+        amount: d(saved.amount),
+        occurredAt: saved.occurredAt,
+        note: saved.note,
+      })
+      return true
+    }
+
+    if (pathname === '/api/cashflows' && method === 'DELETE') {
+      const id = z.string().min(1).parse(url.searchParams.get('id'))
+      const removed = await store.deleteCashflow(user.id, id)
+      if (!removed) {
+        sendJson(res, 404, { error: 'Операция не найдена' })
+        return true
+      }
+      sendJson(res, 200, { ok: true })
       return true
     }
 

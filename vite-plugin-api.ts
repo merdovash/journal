@@ -28,7 +28,8 @@ function apiMiddleware() {
         pathname.startsWith('/api/registry') ||
         pathname.startsWith('/api/settings') ||
         pathname.startsWith('/api/opens') ||
-        pathname.startsWith('/api/closes')
+        pathname.startsWith('/api/closes') ||
+        pathname.startsWith('/api/cashflows')
       ) {
         return handleJournalApi(req, res, pathname, url)
       }

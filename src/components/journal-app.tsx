@@ -3,18 +3,24 @@ import {
   Button,
   EmptyState,
   ErrorState,
+  Input,
+  Label,
   LoadingState,
+  PanelActions,
+  PanelBody,
+  PanelSection,
   StackedPanelHost,
   StackedPanelProvider,
   StatWidget,
   useStackedPanel,
   type PanelEntry,
 } from "./ui";
-import { Check, Plus, XCircle } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Check, Plus, Settings, XCircle } from "lucide-react";
 import {
   CLOSE_REASON_LABELS,
   formatDateTime,
   formatMoney,
+  type CashflowKind,
   type JournalStats,
   type RegistryItem,
 } from "../lib/journal";
@@ -24,6 +30,7 @@ import {
   ViewClosePanel,
   ViewOpenPanel,
 } from "./panel-views";
+import { localInputToIso, toLocalInput } from "./trade-forms";
 
 type RegistryResponse = {
   stats: JournalStats;
@@ -144,6 +151,27 @@ function JournalShell() {
               onDone={load}
             />
           );
+        case "settings":
+          return (
+            <SettingsPanel
+              startingBalance={data?.stats.startingBalance ?? 0}
+              onDone={load}
+            />
+          );
+        case "create-cashflow":
+          return (
+            <CashflowPanel
+              kind={(panel.data as { kind: CashflowKind }).kind}
+              onDone={load}
+            />
+          );
+        case "view-cashflow":
+          return (
+            <ViewCashflowPanel
+              flow={panel.data as CashflowView}
+              onDone={load}
+            />
+          );
         case "pick-open-to-close":
           return (
             <PickOpenToClose
@@ -173,16 +201,29 @@ function JournalShell() {
 
   return (
     <div className="relative mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 pb-24 pt-6 sm:px-6">
-      <header className="mb-6 flex flex-col gap-1">
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Broker Journal
-        </p>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-          Журнал брокера
-        </h1>
-        <p className="max-w-xl text-sm text-muted-foreground">
-          Учёт открытий и закрытий фьючерсов: баланс, маржа, PnL и графики входа/выхода.
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Broker Journal
+          </p>
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            Журнал брокера
+          </h1>
+          <p className="max-w-xl text-sm text-muted-foreground">
+            Учёт открытий и закрытий фьючерсов: баланс, маржа, PnL и графики входа/выхода.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-1 shrink-0"
+          disabled={!data}
+          onClick={() => push({ type: "settings", title: "Настройки" })}
+        >
+          <Settings className="size-4" />
+          Настройки
+        </Button>
       </header>
 
       {status === "loading" && !data ? <LoadingState label="Загрузка реестра…" /> : null}
@@ -196,6 +237,7 @@ function JournalShell() {
             <StatWidget
               label="Баланс"
               value={formatMoney(data.stats.balance)}
+              hint={`Старт ${formatMoney(data.stats.startingBalance)}`}
               tone={data.stats.balance >= 0 ? "default" : "negative"}
             />
             <StatWidget label="Вложено" value={formatMoney(data.stats.invested)} />
@@ -215,7 +257,37 @@ function JournalShell() {
 
           <section className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-sm font-medium text-muted-foreground">Операции</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  push({
+                    type: "create-cashflow",
+                    title: "Ввод средств",
+                    data: { kind: "deposit" },
+                  })
+                }
+              >
+                <ArrowDownToLine className="size-4" />
+                Ввод
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  push({
+                    type: "create-cashflow",
+                    title: "Вывод средств",
+                    data: { kind: "withdrawal" },
+                  })
+                }
+              >
+                <ArrowUpFromLine className="size-4" />
+                Вывод
+              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -263,6 +335,55 @@ function JournalShell() {
           ) : (
             <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
               {data.items.map((item) => {
+                if (item.kind === "deposit" || item.kind === "withdrawal") {
+                  const incoming = item.kind === "deposit";
+                  return (
+                    <li key={`${item.kind}-${item.id}`}>
+                      <button
+                        type="button"
+                        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                        onClick={() =>
+                          push({
+                            type: "view-cashflow",
+                            title: incoming ? "Ввод средств" : "Вывод средств",
+                            data: {
+                              id: item.id,
+                              kind: item.kind,
+                              amount: item.amount,
+                              at: item.at,
+                              note: item.note,
+                            },
+                          })
+                        }
+                      >
+                        <span
+                          className={`mt-0.5 rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                            incoming
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                              : "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300"
+                          }`}
+                        >
+                          {incoming ? "Ввод" : "Вывод"}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-baseline justify-between gap-2">
+                            <span className="truncate font-medium">
+                              {item.note || (incoming ? "Ввод средств" : "Вывод средств")}
+                            </span>
+                            <span className="shrink-0 tabular-nums text-sm">
+                              {incoming ? "+" : "−"}
+                              {formatMoney(item.amount)}
+                            </span>
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {formatDateTime(item.at)}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                }
+
                 const closed = item.kind === "close" || item.closed;
                 return (
                   <li key={`${item.kind}-${item.id}`}>
@@ -289,8 +410,8 @@ function JournalShell() {
                         <span
                           className={`mt-0.5 rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
                             item.kind === "open"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-slate-200 text-slate-800"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                              : "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
                           }`}
                         >
                           {item.kind === "open" ? "Open" : "Close"}
@@ -343,7 +464,7 @@ function JournalShell() {
                           Закрыть
                         </Button>
                       ) : closed ? (
-                        <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                        <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                           <Check className="size-3" />
                           Закрыто
                         </span>
@@ -369,6 +490,241 @@ function JournalShell() {
           Закрыть стек
         </button>
       ) : null}
+    </div>
+  );
+}
+
+function SettingsPanel({
+  startingBalance,
+  onDone,
+}: {
+  startingBalance: number;
+  onDone: () => Promise<void> | void;
+}) {
+  const { clear } = useStackedPanel();
+  const [value, setValue] = React.useState(String(startingBalance));
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const next = Number(value);
+      if (!Number.isFinite(next)) throw new Error("Некорректное поле: начальная сумма");
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startingBalance: next }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Ошибка сохранения");
+      await onDone();
+      clear();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка сохранения");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={(event) => void onSubmit(event)} className="flex min-h-full flex-col">
+      <PanelBody>
+        <PanelSection title="Счёт">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="starting-balance">Начальная сумма</Label>
+            <Input
+              id="starting-balance"
+              required
+              type="number"
+              step="any"
+              inputMode="decimal"
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Баланс считается от этой суммы: плюс вводы и заработанное, минус выводы и маржа открытых позиций.
+            </p>
+          </div>
+        </PanelSection>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </PanelBody>
+      <PanelActions>
+        <Button type="button" variant="outline" className="flex-1" onClick={() => clear()}>
+          Отмена
+        </Button>
+        <Button type="submit" className="flex-1" disabled={busy}>
+          {busy ? "Сохранение…" : "Сохранить"}
+        </Button>
+      </PanelActions>
+    </form>
+  );
+}
+
+type CashflowView = {
+  id: string;
+  kind: CashflowKind;
+  amount: number;
+  at: string;
+  note: string;
+};
+
+function CashflowPanel({
+  kind,
+  onDone,
+}: {
+  kind: CashflowKind;
+  onDone: () => Promise<void> | void;
+}) {
+  const { clear } = useStackedPanel();
+  const [amount, setAmount] = React.useState("");
+  const [occurredAt, setOccurredAt] = React.useState(() => toLocalInput(new Date()));
+  const [note, setNote] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const incoming = kind === "deposit";
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const next = Number(amount);
+      if (!Number.isFinite(next) || next <= 0) {
+        throw new Error("Сумма должна быть больше нуля");
+      }
+      const res = await fetch("/api/cashflows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind,
+          amount: next,
+          occurredAt: localInputToIso(occurredAt),
+          note,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Ошибка сохранения");
+      await onDone();
+      clear();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка сохранения");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={(event) => void onSubmit(event)} className="flex min-h-full flex-col">
+      <PanelBody>
+        <PanelSection title={incoming ? "Ввод" : "Вывод"}>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cashflow-amount">Сумма</Label>
+              <Input
+                id="cashflow-amount"
+                required
+                type="number"
+                step="any"
+                min="0"
+                inputMode="decimal"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cashflow-at">Дата и время</Label>
+              <Input
+                id="cashflow-at"
+                required
+                type="datetime-local"
+                value={occurredAt}
+                onChange={(event) => setOccurredAt(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cashflow-note">Комментарий</Label>
+              <Input
+                id="cashflow-note"
+                value={note}
+                maxLength={500}
+                placeholder="Необязательно"
+                onChange={(event) => setNote(event.target.value)}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {incoming
+                ? "Ввод увеличивает баланс счёта."
+                : "Вывод уменьшает баланс счёта."}
+            </p>
+          </div>
+        </PanelSection>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </PanelBody>
+      <PanelActions>
+        <Button type="button" variant="outline" className="flex-1" onClick={() => clear()}>
+          Отмена
+        </Button>
+        <Button type="submit" className="flex-1" disabled={busy}>
+          {busy ? "Сохранение…" : incoming ? "Ввести" : "Вывести"}
+        </Button>
+      </PanelActions>
+    </form>
+  );
+}
+
+function ViewCashflowPanel({
+  flow,
+  onDone,
+}: {
+  flow: CashflowView;
+  onDone: () => Promise<void> | void;
+}) {
+  const { clear } = useStackedPanel();
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const incoming = flow.kind === "deposit";
+
+  async function remove() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/cashflows?id=${encodeURIComponent(flow.id)}`, {
+        method: "DELETE",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Ошибка удаления");
+      await onDone();
+      clear();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка удаления");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-full flex-col">
+      <PanelBody>
+        <PanelSection title={incoming ? "Ввод" : "Вывод"}>
+          <p className="text-2xl font-semibold tabular-nums">
+            {incoming ? "+" : "−"}
+            {formatMoney(flow.amount)}
+          </p>
+          <p className="text-sm text-muted-foreground">{formatDateTime(flow.at)}</p>
+          {flow.note ? <p className="text-sm">{flow.note}</p> : null}
+        </PanelSection>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </PanelBody>
+      <PanelActions>
+        <Button type="button" variant="outline" className="flex-1" onClick={() => clear()} disabled={busy}>
+          Закрыть
+        </Button>
+        <Button type="button" variant="destructive" className="flex-1" onClick={() => void remove()} disabled={busy}>
+          Удалить
+        </Button>
+      </PanelActions>
     </div>
   );
 }
