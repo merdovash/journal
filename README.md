@@ -2,113 +2,71 @@
 
 Русскоязычный PWA-журнал открытий и закрытий фьючерсов: реестр операций, виджеты баланса, стековые карточки с графиками Yahoo Finance.
 
-## Структура монорепо
-
-```
-apps/broker-journal   — Next.js App Router (UI, API, Prisma, PWA)
-apps/broker-journal/models/tessdata — веса Tesseract rus+eng для импорта со скриншота
-packages/ui           — @broker-journal/ui: StackedPanel + примитивы (Button, Input, …)
-```
-
-Пакет UI рассчитан на переиспользование (в т.ч. будущий wallet). Исходники wallet в этой среде недоступны — стек панелей реализован здесь с нуля (push/pop/overlay/back).
+Сервис собран как дочернее приложение [project_hub](https://github.com/merdovash/project_hub): Vite, React 19, Tailwind 4, общая база `finance` и cookie `session`.
 
 ## Требования
 
 - Node.js 20+
-- pnpm 10+
-- PostgreSQL 16 (локально или через Docker)
+- npm
+- PostgreSQL 16 — тот же экземпляр, что у портала (`C:\projects\portal`, `npm run db:up`)
 
 ## Быстрый старт
 
 ```bash
-# 1. Postgres
-docker compose up -d
+cp .env.example .env
+# DATABASE_URL=postgresql://finance:finance@localhost:5432/finance
 
-# 2. Env
-cp .env.example apps/broker-journal/.env
-# DATABASE_URL=postgresql://broker:broker@localhost:5432/broker_journal?schema=public
-
-# 3. Зависимости
-pnpm install
-
-# 4. Миграции и сид
-pnpm --filter @broker-journal/app exec prisma migrate dev --name init
-pnpm db:seed
-
-# 5. Dev-сервер (0.0.0.0:43127)
-pnpm dev
+npm install
+npm run db:migrate
+npm run dev
 ```
 
-Откройте [http://127.0.0.1:43127](http://127.0.0.1:43127).
+Откройте [http://127.0.0.1:5175](http://127.0.0.1:5175).
 
-### Без Docker
-
-Поднимите PostgreSQL сами и укажите `DATABASE_URL` в `apps/broker-journal/.env`. Пример из `.env.example` совпадает с `docker-compose.yml`.
+Без `VITE_PORTAL_URL` на экране входа есть локальные вход и регистрация в общие таблицы `users` / `sessions`. Если задан `VITE_PORTAL_URL`, кнопка ведёт на портал с `?return=` на текущую страницу.
 
 ## Возможности
 
 - Реестр на `/` со счётчиками: **баланс**, **вложено**, **заработано**, **комиссии**
 - Открытие со скриншота Walt («Лонг открыт» или «Ваша позиция»): локальный OCR заполняет форму, сделка сохраняется после проверки
 - Закрытие со скриншота Walt («Цена при закрытии»): в форму подставляются цена выхода, комиссия и дата
-- Карточки на **стековых панелях** (не отдельных роутах): просмотр / правка / создание открытия и закрытия
+- Карточки на стековых панелях: просмотр / правка / создание открытия и закрытия
 - Deep-link: `?stack=open:<id>` / `?stack=close:<id>`
-- Свечи: `GET /api/candles?symbol=&from=&to&interval=5m` через `yahoo-finance2` (**не хранятся** в БД)
-- Графики: Lightweight Charts (SL/TP линии, маркеры входа/выхода)
-- PWA: manifest, иконки 192/512, service worker (`@ducanh2912/next-pwa`, в production-сборке; в `dev` отключён). Online-first для API.
+- Свечи: `GET /api/candles?symbol=&from=&to&interval=5m` через `yahoo-finance2` (не хранятся в БД)
+- Графики: Lightweight Charts (линии SL/TP, маркеры входа/выхода)
+- PWA: `vite-plugin-pwa`, иконки 192/512. Service worker ставится в production-сборке.
 
-## Модель данных (Prisma)
+Строки журнала принадлежат пользователю сессии (`journal_opens.user_id`).
 
-- `TradeOpen` — открытие
-- `TradeClose` — закрытие с уникальным `openId` (открытие при закрытии **не мутируется**)
-- `BrokerSettings` — singleton `startingBalance`
+## Модель данных
 
-Формулы — в `apps/broker-journal/src/lib/journal.ts` (long PnL в первом срезе).
+SQL-миграции в `server/db/migrations`. Журнал применения — таблица `journal_schema_migrations`, чтобы не пересечься с wallet и бюджетом.
+
+- `journal_opens` — открытие
+- `journal_closes` — закрытие с уникальным `open_id` (открытие при закрытии не меняется)
+- `journal_settings` — стартовый баланс пользователя
+- `users`, `sessions` — общие с порталом, создаются через `IF NOT EXISTS`
+
+Формулы PnL — в `src/lib/journal.ts`.
 
 ## Скрипты
 
 | Команда | Описание |
 |--------|----------|
-| `pnpm dev` | Dev-сервер на порту 43127 |
-| `pnpm --filter @broker-journal/app test:screenshot` | Суммы сделки, разбор текста и OCR фикстур открытия и закрытия |
-| `pnpm build` | Сборка UI + app |
-| `pnpm db:push` | Prisma db push |
-| `pnpm db:seed` | Пример сделок |
-| `pnpm db:migrate` | `prisma migrate deploy` |
+| `npm run dev` | Dev-сервер на порту 5175 |
+| `npm test` | Vitest: суммы сделки и разбор текста скриншотов |
+| `npm run build` | `tsc -b` и production-сборка |
+| `npm run preview` | Превью сборки (так журнал запускает PM2 хаба) |
+| `npm run db:migrate` | Применить SQL-миграции |
+
+OCR-тесты фикстур (`server/screenshot/*.test.ts`) тоже входят в `npm test` и читают веса из `models/tessdata`.
 
 ## Установка как PWA
 
-После `pnpm build && pnpm --filter @broker-journal/app start` откройте сайт в Chrome/Edge → «Установить приложение» / Add to Home Screen. В режиме `dev` SW не регистрируется.
+После `npm run build && npm run preview` откройте сайт в Chrome/Edge и выберите «Установить приложение».
 
-## Интеграция с project_hub (portal)
+## Интеграция с project_hub
 
-Авторизация **живёт в portal** (`C:\projects\portal` на машине пользователя). Журнал не рисует login UI.
+Портал публикует журнал на поддомене `journal.<domain>`: Caddy проксирует на порт **5175**. Каталог сервисов — запись `journal` в `config/services.yaml` портала.
 
-**Подход:** reverse-proxy / Next.js rewrites portal → journal под путём `/broker` (не iframe по умолчанию).
-
-Кратко:
-
-1. Portal владеет сессией / JWT.
-2. Journal принимает identity: cookie JWT, `Authorization: Bearer`, или trusted headers `x-portal-user-*`.
-3. При `AUTH_REQUIRED=true` API отвечает `401`, страницы редиректят на `PORTAL_LOGIN_URL`.
-4. Локально по умолчанию auth **выключен**; для демо можно `AUTH_DEV_BYPASS=true`.
-
-Полный контракт, env и шаги стыковки с portal: [`docs/portal-integration.md`](./docs/portal-integration.md).
-
-### Env для auth / mount
-
-```bash
-# apps/broker-journal/.env — см. также корневой .env.example
-
-# AUTH_REQUIRED="true"          # enforce portal auth
-# AUTH_DEV_BYPASS="true"        # local demo only
-# AUTH_COOKIE_NAME="portal_session"   # ASSUMPTION — сверить с portal
-# AUTH_JWT_SECRET="…"
-# AUTH_TRUST_PROXY_HEADERS="true"
-# AUTH_PROXY_SECRET="…"
-# PORTAL_LOGIN_URL="http://127.0.0.1:3000/login"
-# NEXT_PUBLIC_BASE_PATH="/broker"     # rebuild after change
-```
-
-Проверка identity: `GET /api/auth/me` (с basePath: `/broker/api/auth/me`).
-
-PWA работает в standalone; при embed через iframe install обычно недоступен — см. portal-integration.md.
+Подробности: [`docs/portal-integration.md`](./docs/portal-integration.md).
