@@ -7,6 +7,7 @@ import {
   calcPurchase,
   computeStats,
   signedOpenCash,
+  suggestInstruments,
   type TradeOpenWithClose,
 } from "./journal";
 
@@ -61,6 +62,32 @@ test("long debits the account and short credits it", () => {
   const cost = calcOpenCost(0.373, 390.798551, 3, 0.131);
   assert.equal(cost, 48.720287);
   assert.equal(calcOpenSpread(cost, signedOpenCash(49.41, "short")), 0.689713);
+});
+
+test("ticker suggestions are two recent and two popular without overlap", () => {
+  const suggestions = suggestInstruments([
+    { instrument: "btc", at: "2026-01-01T00:00:00.000Z" },
+    { instrument: "BTC", at: "2026-03-01T00:00:00.000Z" },
+    { instrument: "BTC", at: "2026-04-01T00:00:00.000Z" },
+    { instrument: "ETH", at: "2026-05-01T00:00:00.000Z" },
+    { instrument: "ETH", at: "2026-02-01T00:00:00.000Z" },
+    { instrument: "SOL", at: "2026-04-15T00:00:00.000Z" },
+    { instrument: "SOL", at: "2026-04-16T00:00:00.000Z" },
+    { instrument: "SOL", at: "2026-04-17T00:00:00.000Z" },
+    { instrument: "GOLD", at: "2026-06-01T00:00:00.000Z" },
+    { instrument: "AAPL", at: "2026-01-15T00:00:00.000Z" },
+    { instrument: "  ", at: "2026-07-01T00:00:00.000Z" },
+  ]);
+  assert.deepEqual(
+    suggestions.map((item) => `${item.group}:${item.instrument}`),
+    ["recent:GOLD", "recent:ETH", "popular:SOL", "popular:BTC"]
+  );
+  assert.deepEqual(
+    suggestInstruments([{ instrument: "GC=F", at: "2026-01-01T00:00:00.000Z" }]).map(
+      (item) => item.instrument
+    ),
+    ["GC=F"]
+  );
 });
 
 test("cost is margin plus commission", () => {

@@ -25,6 +25,7 @@ import {
   CLOSE_REASON_LABELS,
   formatDateTime,
   formatMoney,
+  type InstrumentSuggestion,
 } from "../lib/journal";
 import { TradeAmountSummary } from "./trade-amounts";
 
@@ -64,11 +65,18 @@ export type SerializedClose = {
 
 type RefreshFn = () => Promise<void> | void;
 
-export function CreateOpenPanel({ onDone }: { onDone: RefreshFn }) {
+export function CreateOpenPanel({
+  onDone,
+  suggestions = [],
+}: {
+  onDone: RefreshFn;
+  suggestions?: InstrumentSuggestion[];
+}) {
   const { clear } = useStackedPanel();
   return (
     <OpenTradeForm
       enableScreenshot
+      suggestions={suggestions}
       submitLabel="Открыть позицию"
       onCancel={() => clear()}
       onSubmit={async (values) => {
@@ -145,9 +153,11 @@ export function CreateClosePanel({
 export function ViewOpenPanel({
   openId,
   onDone,
+  suggestions = [],
 }: {
   openId: string;
   onDone: RefreshFn;
+  suggestions?: InstrumentSuggestion[];
 }) {
   const { push, replace } = useStackedPanel();
   const [open, setOpen] = React.useState<SerializedOpen | null>(null);
@@ -182,6 +192,7 @@ export function ViewOpenPanel({
   if (editing) {
     return (
       <OpenTradeForm
+        suggestions={suggestions}
         submitLabel="Сохранить"
         initial={{
           openedAt: toLocalInput(new Date(open.openedAt)),

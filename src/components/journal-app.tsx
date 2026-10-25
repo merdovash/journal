@@ -21,6 +21,7 @@ import {
   SIDE_LABELS,
   formatDateTime,
   formatMoney,
+  suggestInstruments,
   type CashflowKind,
   type JournalStats,
   type RegistryItem,
@@ -116,11 +117,21 @@ function JournalShell() {
     }
   }, [stack]);
 
+  const suggestions = React.useMemo(
+    () =>
+      suggestInstruments(
+        (data?.items ?? [])
+          .filter((item) => item.kind === "open")
+          .map((item) => ({ instrument: item.instrument, at: item.at }))
+      ),
+    [data]
+  );
+
   const renderPanel = React.useCallback(
     (panel: PanelEntry) => {
       switch (panel.type) {
         case "create-open":
-          return <CreateOpenPanel onDone={load} />;
+          return <CreateOpenPanel onDone={load} suggestions={suggestions} />;
         case "create-close": {
           const d = panel.data as {
             openId: string;
@@ -143,6 +154,7 @@ function JournalShell() {
             <ViewOpenPanel
               openId={(panel.data as { openId: string }).openId}
               onDone={load}
+              suggestions={suggestions}
             />
           );
         case "view-close":
@@ -190,7 +202,7 @@ function JournalShell() {
           );
       }
     },
-    [load, push, data?.openPositions]
+    [load, push, data?.openPositions, suggestions]
   );
 
   return (

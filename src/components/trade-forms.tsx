@@ -12,7 +12,7 @@ import {
 } from "./ui";
 import type { ParsedCloseValues } from "../lib/screenshot/parse-close";
 import type { ParsedOpenValues } from "../lib/screenshot/parse-open";
-import type { TradeSide } from "../lib/journal";
+import type { InstrumentSuggestion, TradeSide } from "../lib/journal";
 import { SIDE_LABELS, signedOpenCash } from "../lib/journal";
 import { ScreenshotCloseImport, ScreenshotOpenImport } from "./screenshot-open-import";
 import { TradeAmountSummary } from "./trade-amounts";
@@ -51,12 +51,14 @@ export function OpenTradeForm({
   onSubmit,
   onCancel,
   enableScreenshot = false,
+  suggestions = [],
 }: {
   initial?: Partial<OpenFormValues>;
   submitLabel: string;
   onSubmit: (values: OpenFormValues) => Promise<void>;
   onCancel?: () => void;
   enableScreenshot?: boolean;
+  suggestions?: InstrumentSuggestion[];
 }) {
   const [values, setValues] = React.useState<OpenFormValues>({
     ...emptyOpen,
@@ -64,6 +66,7 @@ export function OpenTradeForm({
   });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [tickerOpen, setTickerOpen] = React.useState(false);
 
   const set =
     (key: keyof OpenFormValues) =>
@@ -98,14 +101,34 @@ export function OpenTradeForm({
           </PanelSection>
         ) : null}
         <PanelSection title="Инструмент">
-          <Field label="Тикер (Yahoo)">
+          <div className="relative flex flex-col gap-1.5">
+            <Label htmlFor="open-instrument">Тикер (Yahoo)</Label>
             <Input
+              id="open-instrument"
               required
+              autoComplete="off"
               placeholder="GC=F"
               value={values.instrument}
               onChange={set("instrument")}
+              onFocus={() => setTickerOpen(true)}
+              onClick={() => setTickerOpen(true)}
+              onBlur={() => setTickerOpen(false)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setTickerOpen(false);
+              }}
+              aria-expanded={tickerOpen && suggestions.length > 0}
+              aria-controls="ticker-suggestions"
             />
-          </Field>
+            {tickerOpen && suggestions.length > 0 ? (
+              <TickerSuggestions
+                suggestions={suggestions}
+                onPick={(instrument) => {
+                  setValues((current) => ({ ...current, instrument }));
+                  setTickerOpen(false);
+                }}
+              />
+            ) : null}
+          </div>
           <Field label="Дата и время открытия">
             <Input
               required
@@ -394,6 +417,45 @@ function Field({
       <Label>{label}</Label>
       {children}
     </label>
+  );
+}
+
+function TickerSuggestions({
+  suggestions,
+  onPick,
+}: {
+  suggestions: InstrumentSuggestion[];
+  onPick: (instrument: string) => void;
+}) {
+  const groups = [
+    { id: "recent" as const, title: "Недавние", items: suggestions.filter((item) => item.group === "recent") },
+    { id: "popular" as const, title: "Частые", items: suggestions.filter((item) => item.group === "popular") },
+  ].filter((group) => group.items.length > 0);
+
+  return (
+    <div
+      id="ticker-suggestions"
+      role="listbox"
+      className="absolute top-full z-30 mt-1 w-full overflow-hidden rounded-lg border border-border bg-background shadow-lg"
+    >
+      {groups.map((group) => (
+        <div key={group.id}>
+          <p className="px-3 pt-2 text-xs text-muted-foreground">{group.title}</p>
+          {group.items.map((item) => (
+            <button
+              key={item.instrument}
+              type="button"
+              role="option"
+              className="flex w-full px-3 py-2 text-left text-sm hover:bg-muted"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => onPick(item.instrument)}
+            >
+              {item.instrument}
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 

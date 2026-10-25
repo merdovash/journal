@@ -334,6 +334,52 @@ export function serializeOpen(open: TradeOpenWithClose) {
   };
 }
 
+export type InstrumentSuggestion = {
+  instrument: string;
+  group: "recent" | "popular";
+};
+
+/**
+ * Two most recently used tickers, then two most frequent ones
+ * that are not already in that recent pair.
+ */
+export function suggestInstruments(
+  uses: { instrument: string; at: string }[]
+): InstrumentSuggestion[] {
+  const byTicker = new Map<string, { instrument: string; count: number; lastUsed: number }>();
+  for (const use of uses) {
+    const instrument = use.instrument.trim().toUpperCase();
+    if (!instrument) continue;
+    const at = new Date(use.at).getTime();
+    const lastUsed = Number.isFinite(at) ? at : 0;
+    const current = byTicker.get(instrument);
+    if (!current) {
+      byTicker.set(instrument, { instrument, count: 1, lastUsed });
+      continue;
+    }
+    current.count += 1;
+    if (lastUsed > current.lastUsed) current.lastUsed = lastUsed;
+  }
+
+  const stats = [...byTicker.values()];
+  const recent = [...stats]
+    .sort((a, b) => b.lastUsed - a.lastUsed || a.instrument.localeCompare(b.instrument))
+    .slice(0, 2);
+  const recentIds = new Set(recent.map((item) => item.instrument));
+  const popular = stats
+    .filter((item) => !recentIds.has(item.instrument))
+    .sort(
+      (a, b) =>
+        b.count - a.count || b.lastUsed - a.lastUsed || a.instrument.localeCompare(b.instrument)
+    )
+    .slice(0, 2);
+
+  return [
+    ...recent.map((item) => ({ instrument: item.instrument, group: "recent" as const })),
+    ...popular.map((item) => ({ instrument: item.instrument, group: "popular" as const })),
+  ];
+}
+
 export function formatMoney(value: number, digits = 2): string {
   return new Intl.NumberFormat("ru-RU", {
     minimumFractionDigits: digits,
