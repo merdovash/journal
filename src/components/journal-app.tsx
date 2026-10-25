@@ -320,47 +320,45 @@ function JournalShell() {
                   const incoming = item.kind === "deposit";
                   return (
                     <li key={`${item.kind}-${item.id}`}>
-                      <button
-                        type="button"
-                        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
-                        onClick={() =>
-                          push({
-                            type: "view-cashflow",
-                            title: incoming ? "Ввод средств" : "Вывод средств",
-                            data: {
-                              id: item.id,
-                              kind: item.kind,
-                              amount: item.amount,
-                              at: item.at,
-                              note: item.note,
-                            },
-                          })
-                        }
-                      >
-                        <span
-                          className={`mt-0.5 rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
-                            incoming
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                              : "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300"
-                          }`}
+                        <button
+                          type="button"
+                          className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                          onClick={() =>
+                            push({
+                              type: "view-cashflow",
+                              title: incoming ? "Ввод средств" : "Вывод средств",
+                              data: {
+                                id: item.id,
+                                kind: item.kind,
+                                amount: item.amount,
+                                at: item.at,
+                                note: item.note,
+                              },
+                            })
+                          }
                         >
-                          {incoming ? "Ввод" : "Вывод"}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-baseline justify-between gap-2">
-                            <span className="truncate font-medium">
-                              {item.note || (incoming ? "Ввод средств" : "Вывод средств")}
-                            </span>
-                            <span className="shrink-0 tabular-nums text-sm">
-                              {incoming ? "+" : "−"}
-                              {formatMoney(item.amount)}
+                          <RegistryWhen at={item.at} />
+                          <span
+                            className={`mt-0.5 rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                              incoming
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                                : "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300"
+                            }`}
+                          >
+                            {incoming ? "Ввод" : "Вывод"}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-baseline justify-between gap-2">
+                              <span className="truncate font-medium">
+                                {item.note || (incoming ? "Ввод средств" : "Вывод средств")}
+                              </span>
+                              <span className="shrink-0 tabular-nums text-sm">
+                                {incoming ? "+" : "−"}
+                                {formatMoney(item.amount)}
+                              </span>
                             </span>
                           </span>
-                          <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {formatDateTime(item.at)}
-                          </span>
-                        </span>
-                      </button>
+                        </button>
                     </li>
                   );
                 }
@@ -388,6 +386,7 @@ function JournalShell() {
                           }
                         }}
                       >
+                        <RegistryWhen at={item.at} />
                         <span
                           className={`mt-0.5 rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
                             item.kind === "open"
@@ -407,7 +406,6 @@ function JournalShell() {
                             </span>
                           </span>
                           <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
-                            <span>{formatDateTime(item.at)}</span>
                             {item.kind === "open" ? (
                               <span>
                                 {SIDE_LABELS[item.side]} · ×{formatMoney(item.quantity, 2)} · плечо{" "}
@@ -476,6 +474,25 @@ function JournalShell() {
         </button>
       ) : null}
     </div>
+  );
+}
+
+function RegistryWhen({ at }: { at: string }) {
+  const date = new Date(at);
+  const day = new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+  const time = new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+  return (
+    <span className="flex min-w-[7.75rem] shrink-0 flex-col whitespace-nowrap text-left leading-tight">
+      <span className="text-xs font-medium tabular-nums">{day}</span>
+      <span className="text-xs tabular-nums text-muted-foreground">{time}</span>
+    </span>
   );
 }
 
