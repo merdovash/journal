@@ -13,7 +13,7 @@ import {
 import type { ParsedCloseValues } from "../lib/screenshot/parse-close";
 import type { ParsedOpenValues } from "../lib/screenshot/parse-open";
 import type { TradeSide } from "../lib/journal";
-import { SIDE_LABELS } from "../lib/journal";
+import { SIDE_LABELS, signedOpenCash } from "../lib/journal";
 import { ScreenshotCloseImport, ScreenshotOpenImport } from "./screenshot-open-import";
 import { TradeAmountSummary } from "./trade-amounts";
 
@@ -130,7 +130,13 @@ export function OpenTradeForm({
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border bg-background text-foreground"
                     }`}
-                    onClick={() => setValues((current) => ({ ...current, side }))}
+                    onClick={() =>
+                      setValues((current) => ({
+                        ...current,
+                        side,
+                        cashAmount: cashInputForSide(current.cashAmount, side),
+                      }))
+                    }
                   >
                     {SIDE_LABELS[side]}
                   </button>
@@ -184,7 +190,7 @@ export function OpenTradeForm({
               />
             </Field>
           </div>
-          <Field label="Списано или получено">
+          <Field label={values.side === "short" ? "Получено" : "Списано"}>
             <Input
               type="number"
               step="any"
@@ -192,9 +198,17 @@ export function OpenTradeForm({
               placeholder="Необязательно"
               value={values.cashAmount}
               onChange={set("cashAmount")}
+              onBlur={() =>
+                setValues((current) => ({
+                  ...current,
+                  cashAmount: cashInputForSide(current.cashAmount, current.side),
+                }))
+              }
             />
             <p className="text-xs text-muted-foreground">
-              Минус — деньги списали, плюс — получили. Пусто, если сумма неизвестна. Спред — разница с расчётными затратами.
+              {values.side === "short"
+                ? "Шорт зачисляет деньги на счёт, минус ставится сам. Плечо не входит — его оплачивает платформа."
+                : "Лонг списывает деньги со счёта. Плечо не входит — его оплачивает платформа."}
             </p>
           </Field>
         </PanelSection>
@@ -204,6 +218,7 @@ export function OpenTradeForm({
             quantity={Number(values.quantity)}
             leverage={Number(values.leverage)}
             commission={Number(values.commission)}
+            side={values.side}
             cashAmount={values.cashAmount.trim() ? Number(values.cashAmount) : null}
           />
         </PanelSection>
@@ -389,6 +404,21 @@ export function toLocalInput(date: Date): string {
 
 export function localInputToIso(value: string): string {
   return new Date(value).toISOString();
+}
+
+/** Magnitude from the field, sign from the direction. Empty stays empty. */
+export function cashInputForSide(raw: string, side: TradeSide): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return raw;
+  const amount = Number(trimmed);
+  if (!Number.isFinite(amount)) return raw;
+  const signed = signedOpenCash(amount, side);
+  return Object.is(signed, amount) ? raw : String(signed);
+}
+
+export function signedCashFromInput(raw: string, side: TradeSide): number | null {
+  const amount = parseOptionalNumber(raw);
+  return amount == null ? null : signedOpenCash(amount, side);
 }
 
 export function parseOptionalNumber(value: string): number | null {

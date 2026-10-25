@@ -1,7 +1,14 @@
 "use client";
 
 import { StatWidget } from "./ui";
-import { calcOpenCost, calcOpenSpread, calcPurchase, formatMoney } from "../lib/journal";
+import {
+  calcOpenCost,
+  calcOpenSpread,
+  calcPurchase,
+  formatMoney,
+  signedOpenCash,
+  type TradeSide,
+} from "../lib/journal";
 
 export function TradeAmountSummary({
   price,
@@ -10,15 +17,17 @@ export function TradeAmountSummary({
   commission,
   cashAmount = null,
   spreadCommission,
+  side = "long",
 }: {
   price: number;
   quantity: number;
   leverage: number;
   commission: number;
-  /** Signed cash at open. Empty when the user did not enter it. */
+  /** Account movement. A positive value is debited, a negative value is received. */
   cashAmount?: number | null;
   /** Commission used for the spread baseline. Defaults to `commission`. */
   spreadCommission?: number;
+  side?: TradeSide;
 }) {
   const ready =
     price > 0 &&
@@ -29,33 +38,44 @@ export function TradeAmountSummary({
   const purchase = ready ? formatMoney(calcPurchase(price, quantity)) : "—";
   const cost = ready ? formatMoney(calcOpenCost(price, quantity, leverage, commission)) : "—";
   const baselineCommission = spreadCommission ?? commission;
+  const signedCash =
+    cashAmount != null && Number.isFinite(cashAmount) ? signedOpenCash(cashAmount, side) : null;
   const spreadReady =
     ready &&
-    cashAmount != null &&
-    Number.isFinite(cashAmount) &&
+    signedCash != null &&
     Number.isFinite(baselineCommission) &&
     baselineCommission >= 0;
   const spread = spreadReady
-    ? calcOpenSpread(calcOpenCost(price, quantity, leverage, baselineCommission), cashAmount)
+    ? calcOpenSpread(calcOpenCost(price, quantity, leverage, baselineCommission), signedCash)
     : null;
+  const received = side === "short";
+  const favorable = spread != null && (received ? spread > 0 : spread < 0);
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      <StatWidget label="Сумма покупки" value={purchase} hint="Цена × количество" />
-      <StatWidget label="Сумма затрат" value={cost} hint="Маржа и комиссия" />
-      {cashAmount != null && Number.isFinite(cashAmount) ? (
+      <StatWidget
+        label={received ? "Сумма продажи" : "Сумма покупки"}
+        value={purchase}
+        hint="Цена × количество"
+      />
+      <StatWidget
+        label={received ? "Сумма поступления" : "Сумма затрат"}
+        value={cost}
+        hint="Маржа и комиссия, плечо платит платформа"
+      />
+      {signedCash != null ? (
         <StatWidget
-          label="Факт"
-          value={formatMoney(cashAmount)}
-          hint="Списано минусом, получено плюсом"
+          label={received ? "Получено" : "Списано"}
+          value={formatMoney(signedCash)}
+          hint={received ? "Зачисление на ваш счёт" : "Списание с вашего счёта"}
         />
       ) : null}
       {spread != null ? (
         <StatWidget
           label="Спред"
           value={`${spread > 0 ? "+" : ""}${formatMoney(spread)}`}
-          hint="Факт минус ожидаемое списание"
-          tone={spread < 0 ? "negative" : spread > 0 ? "positive" : "muted"}
+          hint="На сколько движение отличается от маржи и комиссии"
+          tone={spread === 0 ? "muted" : favorable ? "positive" : "negative"}
         />
       ) : null}
     </div>

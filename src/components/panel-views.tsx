@@ -15,8 +15,10 @@ import {
   CloseTradeForm,
   OpenTradeForm,
   localInputToIso,
+  cashInputForSide,
   parseOptionalNumber,
   parseRequiredNumber,
+  signedCashFromInput,
   toLocalInput,
 } from "./trade-forms";
 import {
@@ -83,7 +85,7 @@ export function CreateOpenPanel({ onDone }: { onDone: RefreshFn }) {
             leverage: parseRequiredNumber(values.leverage, "плечо"),
             quantity: parseRequiredNumber(values.quantity, "количество"),
             side: values.side,
-            cashAmount: parseOptionalNumber(values.cashAmount),
+            cashAmount: signedCashFromInput(values.cashAmount, values.side),
             openReason: values.openReason,
           }),
         });
@@ -191,7 +193,7 @@ export function ViewOpenPanel({
           leverage: String(open.leverage),
           quantity: String(open.quantity),
           side: open.side,
-          cashAmount: open.cashAmount == null ? "" : String(open.cashAmount),
+          cashAmount: open.cashAmount == null ? "" : cashInputForSide(String(open.cashAmount), open.side),
           openReason: open.openReason,
         }}
         onCancel={() => setEditing(false)}
@@ -210,7 +212,7 @@ export function ViewOpenPanel({
               leverage: parseRequiredNumber(values.leverage, "плечо"),
               quantity: parseRequiredNumber(values.quantity, "количество"),
               side: values.side,
-              cashAmount: parseOptionalNumber(values.cashAmount),
+              cashAmount: signedCashFromInput(values.cashAmount, values.side),
               openReason: values.openReason,
             }),
           });
@@ -250,6 +252,7 @@ export function ViewOpenPanel({
             leverage={open.leverage}
             commission={open.commission + (open.close?.commission ?? 0)}
             cashAmount={open.cashAmount}
+            side={open.side}
             spreadCommission={open.commission}
           />
           {open.openReason ? (
@@ -421,6 +424,7 @@ export function ViewClosePanel({
             leverage={close.open.leverage}
             commission={close.open.commission + close.commission}
             cashAmount={close.open.cashAmount}
+            side={close.open.side}
             spreadCommission={close.open.commission}
           />
           <button

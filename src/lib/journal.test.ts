@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { calcNetPnl, calcOpenCost, calcOpenSpread, calcPurchase, computeStats, type TradeOpenWithClose } from "./journal";
+import {
+  calcNetPnl,
+  calcOpenCost,
+  calcOpenSpread,
+  calcPurchase,
+  computeStats,
+  signedOpenCash,
+  type TradeOpenWithClose,
+} from "./journal";
 
 test("purchase is entry price times quantity", () => {
   assert.equal(calcPurchase(1.446, 68.243888), 98.680662);
@@ -38,11 +46,21 @@ test("short pnl is the opposite of a long", () => {
   assert.equal(calcNetPnl(10, 12, 2, 1, 1, "short"), -6);
 });
 
-test("spread is actual cash minus the expected debit", () => {
+test("spread compares the size of the account movement with margin and commission", () => {
   const cost = calcOpenCost(1.446, 68.243888, 2, 0.088);
+  assert.equal(calcOpenSpread(cost, cost), 0);
   assert.equal(calcOpenSpread(cost, -cost), 0);
-  assert.equal(calcOpenSpread(cost, -50), -0.571669);
-  assert.equal(calcOpenSpread(10, 2), 12);
+  assert.equal(calcOpenSpread(cost, 50), 0.571669);
+  assert.equal(calcOpenSpread(10, -12), 2);
+});
+
+test("long debits the account and short credits it", () => {
+  assert.equal(signedOpenCash(49.41, "long"), 49.41);
+  assert.equal(signedOpenCash(-49.41, "long"), 49.41);
+  assert.equal(signedOpenCash(49.41, "short"), -49.41);
+  const cost = calcOpenCost(0.373, 390.798551, 3, 0.131);
+  assert.equal(cost, 48.720287);
+  assert.equal(calcOpenSpread(cost, signedOpenCash(49.41, "short")), 0.689713);
 });
 
 test("cost is margin plus commission", () => {

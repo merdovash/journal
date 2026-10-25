@@ -22,7 +22,7 @@ export type TradeOpen = {
   leverage: number | string;
   quantity: number | string;
   side: TradeSide;
-  /** Signed cash at open: negative if debited, positive if received. */
+  /** Cash on the user's account at open: positive if debited, negative if received. */
   cashAmount: number | string | null;
   openReason: string;
 };
@@ -80,13 +80,22 @@ export function calcOpenCost(
 }
 
 /**
- * Spread versus the calculated debit.
- * cashAmount is signed (minus = written off, plus = received).
- * Expected cash change is −cost, so spread = cashAmount − (−cost).
- * Zero means the cash matched the model. Negative means more was written off.
+ * Account movement at open. Long buys, so cash leaves the account.
+ * Short sells, so cash arrives. The platform pays the leverage, so the
+ * amount is the user's margin and commission, not the full notional.
+ */
+export function signedOpenCash(amount: number, side: TradeSide): number {
+  const magnitude = Math.abs(amount);
+  return side === "short" ? -magnitude : magnitude;
+}
+
+/**
+ * How far the account movement is from margin + open commission.
+ * The side supplies the sign of the cash; the spread compares sizes.
+ * Positive means more money moved than the model.
  */
 export function calcOpenSpread(cost: number, cashAmount: number): number {
-  return round6(cashAmount + cost);
+  return round6(Math.abs(cashAmount) - cost);
 }
 
 export type CashflowKind = "deposit" | "withdrawal";
