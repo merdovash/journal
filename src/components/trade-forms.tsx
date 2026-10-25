@@ -102,12 +102,12 @@ export function OpenTradeForm({
         ) : null}
         <PanelSection title="Инструмент">
           <div className="relative flex flex-col gap-1.5">
-            <Label htmlFor="open-instrument">Тикер (Yahoo)</Label>
+            <Label htmlFor="open-instrument">Тикер</Label>
             <Input
               id="open-instrument"
               required
               autoComplete="off"
-              placeholder="GC=F"
+              placeholder="GC=F или BINANCE:BTCUSDT"
               value={values.instrument}
               onChange={set("instrument")}
               onFocus={() => setTickerOpen(true)}
@@ -119,6 +119,9 @@ export function OpenTradeForm({
               aria-expanded={tickerOpen && suggestions.length > 0}
               aria-controls="ticker-suggestions"
             />
+            <p className="text-xs text-muted-foreground">
+              Yahoo — обычный тикер, например GC=F. Binance — префикс BINANCE: и пара, например BINANCE:BTCUSDT.
+            </p>
             {tickerOpen && suggestions.length > 0 ? (
               <TickerSuggestions
                 suggestions={suggestions}

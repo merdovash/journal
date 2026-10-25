@@ -59,6 +59,7 @@ export function TradeChart({
     "loading"
   );
   const [error, setError] = React.useState<string | null>(null);
+  const [source, setSource] = React.useState<"yahoo" | "binance">("yahoo");
   const { mode: themeMode } = useTheme();
   const isDark = resolveTheme(themeMode) === "dark";
 
@@ -77,6 +78,7 @@ export function TradeChart({
       if (!res.ok) {
         throw new Error(data.error ?? "Ошибка свечей");
       }
+      setSource(data.source === "binance" ? "binance" : "yahoo");
       const candles: CandlePoint[] = data.candles ?? [];
       if (!candles.length) {
         setStatus("empty");
@@ -233,7 +235,11 @@ export function TradeChart({
       {status === "empty" ? (
         <ErrorState
           title="Нет свечей"
-          description="Yahoo Finance не вернул данные за выбранный интервал. Проверьте тикер и даты."
+          description={
+            source === "binance"
+              ? "Binance не вернул свечи за выбранный интервал. Проверьте пару BINANCE:BTCUSDT и даты."
+              : "Yahoo Finance не вернул данные за выбранный интервал. Проверьте тикер и даты."
+          }
           onRetry={load}
         />
       ) : null}
